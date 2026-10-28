@@ -1,4 +1,5 @@
-import { addEvent, updateEvent, deleteEvent } from './shared/api.js';
+import { addEvent, updateEvent, deleteEvent, setTimetableColor } from './shared/api.js';
+import { isTimetable } from './shared/timetable.js';
 import { toDateKey, toTimeKey, fromKeys, addDays, parseTime } from './shared/dates.js';
 import { EVENT_COLORS, DEFAULT_COLOR } from './colors.js';
 
@@ -35,6 +36,7 @@ const form = dialog.querySelector('form');
 const message = form.querySelector('.message');
 const deleteButton = form.querySelector('[data-action="delete"]');
 let editingId = null;
+let editingRow = null;
 let onSaved = () => {};
 
 function syncAllDay() {
@@ -130,6 +132,10 @@ form.addEventListener('submit', async (e) => {
   try {
     if (editingId) await updateEvent(editingId, fields);
     else await addEvent(fields);
+    // 수업 시간표의 색을 바꾸면 같은 수업의 다른 주 칸도 모두 같은 색으로 바꿉니다
+    if (editingRow && isTimetable(editingRow) && fields.color !== editingRow.color) {
+      await setTimetableColor(editingRow.title, fields.color);
+    }
     dialog.close();
     onSaved();
   } catch (err) {
@@ -141,6 +147,7 @@ form.addEventListener('submit', async (e) => {
 export function openNewEvent({ start, end, allDay }, saved) {
   fill({ title: '', start, end, allDay, color: DEFAULT_COLOR, memo: '' });
   editingId = null;
+  editingRow = null;
   onSaved = saved;
   deleteButton.hidden = true;
   dialog.showModal();
@@ -157,6 +164,7 @@ export function openEditEvent(row, saved) {
     memo: row.memo || '',
   });
   editingId = row.id;
+  editingRow = row;
   onSaved = saved;
   deleteButton.hidden = false;
   dialog.showModal();
