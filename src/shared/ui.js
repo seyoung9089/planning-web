@@ -41,9 +41,9 @@ export function renderAuthForm(container) {
 }
 
 // 할 일 목록: 추가(마감일 선택), 완료 체크, 삭제
-export function createTodoList(container, { onChange } = {}) {
+export function createTodoList(container, { onChange, showForm = true } = {}) {
   container.innerHTML = `
-    <form class="todo-add">
+    <form class="todo-add" ${showForm ? '' : 'hidden'}>
       <input name="title" placeholder="할 일을 입력하고 Enter" maxlength="200" required />
       <div class="due-row">
         <span>마감</span>
