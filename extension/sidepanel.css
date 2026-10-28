@@ -40,6 +40,9 @@ button.ghost { border-color: transparent; background: none; padding: 4px 8px; fo
 .events li .title { font-weight: 600; color: color-mix(in srgb, var(--ev) 45%, var(--text)); }
 .events li.todo { border-left-style: dashed; background: var(--bg); outline: 1px dashed color-mix(in srgb, var(--primary) 35%, transparent); outline-offset: -1px; }
 .events li.past { opacity: 0.5; }
+/* 빈 시간: 시간만 적힌 비어 있는 칸 */
+.events li.gap { background: none; border: 1px dashed var(--border-strong); min-height: 30px; }
+.events li.gap .time { color: var(--muted); }
 .events li.empty { border: none; background: none; color: var(--muted); justify-content: center; }
 
 .todos li { padding: 5px 6px; }

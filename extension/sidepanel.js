@@ -5,6 +5,7 @@ import { onAuthChange, signOut, subscribeChanges, listEventsBetween, listTodos, 
 import { periodLabel, isTimetable } from '../src/shared/timetable.js';
 import { renderAuthForm, createTodoList } from '../src/shared/ui.js';
 import { parseQuick } from '../src/shared/quickParse.js';
+import { findGaps } from '../src/shared/freeTime.js';
 import { toDateKey, addDays } from '../src/shared/dates.js';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -45,7 +46,7 @@ function notifyBackground() {
 function renderPanel() {
   app.innerHTML = `
     <form class="quick">
-      <input name="text" placeholder="예: 내일 7시 학원 / 금요일 수행평가" autocomplete="off" maxlength="200" />
+      <input name="text" placeholder="예: 내일 7시 학원 / 금요일 수행평가" autocomplete="off" maxlength="200" autofocus />
       <p class="preview" aria-live="polite"></p>
     </form>
     <section class="now-next"></section>
@@ -154,7 +155,20 @@ function renderPanel() {
       return;
     }
     const now = Date.now();
-    for (const ev of todayEvents) {
+    // 일정 사이 빈 시간(10분 이상)은 시간만 적힌 빈 칸으로 끼워 넣습니다
+    const rows = [
+      ...todayEvents.map((ev) => ({ ev, allDay: ev.all_day, start: new Date(ev.start_at) })),
+      ...findGaps(todayEvents).map((gap) => ({ gap, allDay: false, start: gap.start })),
+    ].sort((a, b) => (a.allDay !== b.allDay ? (a.allDay ? -1 : 1) : a.start - b.start));
+    for (const { ev, gap } of rows) {
+      if (gap) {
+        const li = document.createElement('li');
+        li.className = 'gap';
+        li.innerHTML = '<span class="time"></span><span class="title"></span>';
+        li.querySelector('.time').textContent = `${hm(gap.start)}–${hm(gap.end)}`;
+        eventList.append(li);
+        continue;
+      }
       const li = document.createElement('li');
       // 수업 시간표는 지나간 것도 흐리게 하지 않습니다
       li.classList.toggle('past', new Date(ev.end_at).getTime() < now && !isTimetable(ev));
@@ -218,7 +232,18 @@ function renderPanel() {
       renderEvents();
     }
   }, 60000);
-  form.text.focus();
+  // Alt+S로 패널을 열면 클릭하지 않아도 바로 쓸 수 있게 입력 칸에 커서를 둡니다
+  const focusInput = () => {
+    if (document.activeElement?.closest?.('#todo-list')) return; // 할 일 목록을 쓰는 중이면 그대로 둡니다
+    window.focus();
+    form.text.focus();
+  };
+  focusInput();
+  requestAnimationFrame(focusInput);
+  window.addEventListener('focus', focusInput);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') focusInput();
+  });
   return refreshAll;
 }
 
