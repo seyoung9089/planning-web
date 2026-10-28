@@ -1,5 +1,5 @@
 import { addEvent, updateEvent, deleteEvent } from './shared/api.js';
-import { toDateKey, toTimeKey, fromKeys, addDays } from './shared/dates.js';
+import { toDateKey, toTimeKey, fromKeys, addDays, parseTime } from './shared/dates.js';
 import { EVENT_COLORS, DEFAULT_COLOR } from './colors.js';
 
 const dialog = document.createElement('dialog');
@@ -10,10 +10,10 @@ dialog.innerHTML = `
     <label class="check"><input name="allDay" type="checkbox" /> 하루 종일</label>
     <div class="when">
       <input name="startDate" type="date" required aria-label="시작 날짜" />
-      <input name="startTime" type="time" aria-label="시작 시간" />
+      <input name="startTime" class="time-input" placeholder="13:05" maxlength="12" autocomplete="off" aria-label="시작 시간" />
       <span class="dash">–</span>
       <input name="endDate" type="date" required aria-label="끝 날짜" />
-      <input name="endTime" type="time" aria-label="끝 시간" />
+      <input name="endTime" class="time-input" placeholder="14:00" maxlength="12" autocomplete="off" aria-label="끝 시간" />
     </div>
     <div class="colors" role="radiogroup" aria-label="색상">
       ${EVENT_COLORS.map(
@@ -41,8 +41,6 @@ function syncAllDay() {
   const allDay = form.allDay.checked;
   form.startTime.hidden = allDay;
   form.endTime.hidden = allDay;
-  form.startTime.required = !allDay;
-  form.endTime.required = !allDay;
 }
 form.allDay.addEventListener('change', () => {
   if (!form.allDay.checked && !form.startTime.value) {
@@ -52,18 +50,37 @@ form.allDay.addEventListener('change', () => {
   syncAllDay();
 });
 
+// 시간은 직접 씁니다. "1305", "오후 1시 5분"처럼 써도 13:05로 고쳐 주고, 못 알아보면 빨간 테두리와 안내를 띄웁니다
+const TIME_ERROR = '시간 형식이 맞지 않습니다. 13:05처럼 써 주세요.';
+function readTime(input) {
+  const value = parseTime(input.value);
+  input.classList.toggle('invalid', !value);
+  input.setAttribute('aria-invalid', String(!value));
+  if (value) input.value = value;
+  return value;
+}
+for (const input of [form.startTime, form.endTime]) {
+  input.addEventListener('input', () => input.classList.remove('invalid'));
+  input.addEventListener('change', () => {
+    message.textContent = readTime(input) ? '' : TIME_ERROR;
+  });
+}
+
 // 시작 시간을 바꾸면 길이(예: 1시간)를 유지한 채 끝 시간도 같이 옮깁니다
 let lastStart = null;
 function rememberStart() {
-  lastStart = form.startTime.value && form.startDate.value ? fromKeys(form.startDate.value, form.startTime.value) : null;
+  const time = parseTime(form.startTime.value);
+  lastStart = time && form.startDate.value ? fromKeys(form.startDate.value, time) : null;
 }
 form.startTime.addEventListener('focus', rememberStart);
 form.startDate.addEventListener('focus', rememberStart);
 for (const input of [form.startDate, form.startTime]) {
   input.addEventListener('change', () => {
-    if (!lastStart || !form.startDate.value) return;
-    const newStart = fromKeys(form.startDate.value, form.startTime.value || '00:00');
-    const oldEnd = fromKeys(form.endDate.value, form.endTime.value || '00:00');
+    const startTime = form.allDay.checked ? '00:00' : parseTime(form.startTime.value);
+    const endTime = form.allDay.checked ? '00:00' : parseTime(form.endTime.value);
+    if (!lastStart || !form.startDate.value || !startTime || !endTime) return;
+    const newStart = fromKeys(form.startDate.value, startTime);
+    const oldEnd = fromKeys(form.endDate.value, endTime);
     const newEnd = new Date(oldEnd.getTime() + (newStart - lastStart));
     form.endDate.value = toDateKey(newEnd);
     if (!form.allDay.checked) form.endTime.value = toTimeKey(newEnd);
@@ -88,9 +105,16 @@ form.addEventListener('submit', async (e) => {
   e.preventDefault();
   message.textContent = '';
   const allDay = form.allDay.checked;
-  const startAt = fromKeys(form.startDate.value, allDay ? '00:00' : form.startTime.value);
+  const startTime = allDay ? '00:00' : readTime(form.startTime);
+  const endTime = allDay ? '00:00' : readTime(form.endTime);
+  if (!startTime || !endTime) {
+    message.textContent = TIME_ERROR;
+    (startTime ? form.endTime : form.startTime).focus();
+    return;
+  }
+  const startAt = fromKeys(form.startDate.value, startTime);
   // 하루 종일 일정은 "끝 날짜의 다음 날 0시"로 저장합니다 (캘린더 라이브러리 규칙)
-  const endAt = allDay ? addDays(fromKeys(form.endDate.value), 1) : fromKeys(form.endDate.value, form.endTime.value);
+  const endAt = allDay ? addDays(fromKeys(form.endDate.value), 1) : fromKeys(form.endDate.value, endTime);
   if (endAt <= startAt) {
     message.textContent = '끝나는 시간이 시작 시간보다 늦어야 합니다.';
     return;
@@ -147,6 +171,7 @@ function fill({ title, start, end, allDay, color, memo }) {
   form.startTime.value = allDay ? '' : toTimeKey(start);
   form.endTime.value = allDay ? '' : toTimeKey(end);
   form.memo.value = memo;
+  for (const input of [form.startTime, form.endTime]) input.classList.remove('invalid');
   for (const radio of form.querySelectorAll('[name="color"]')) radio.checked = radio.value === color;
   syncAllDay();
 }
