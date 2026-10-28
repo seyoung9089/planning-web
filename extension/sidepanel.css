@@ -1,0 +1,22 @@
+body { font-size: 14px; }
+.panel-top { display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.panel-top button { padding: 4px 10px; font-size: 13px; }
+#app { padding: 14px; display: grid; gap: 20px; }
+#app h2 { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+.auth { margin: 16px 0; padding: 16px; }
+
+.events { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; }
+.events li { display: grid; gap: 2px; padding: 8px 10px; border-left: 4px solid var(--primary);
+  background: var(--surface); border-radius: 6px; }
+.events li .time { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.events li .title { font-weight: 600; }
+.events li.past { opacity: 0.5; }
+.events li.empty { border: none; background: none; color: var(--muted); text-align: center; }
+
+.event-add { display: grid; gap: 8px; }
+.event-add .row { align-items: center; }
+.event-add .row input { flex: 1; min-width: 0; padding: 8px; }
+.event-add .dash { color: var(--muted); }
+.event-add .message { margin: 0; color: var(--danger); font-size: 13px; }
+.event-add .message:empty { display: none; }
