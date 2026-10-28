@@ -38,6 +38,7 @@ button.ghost { border-color: transparent; background: none; padding: 4px 8px; fo
   border-left: 3px solid var(--ev); background: color-mix(in srgb, var(--ev) 10%, var(--bg)); border-radius: 4px; }
 .events li .time { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 78px; }
 .events li .title { font-weight: 600; color: color-mix(in srgb, var(--ev) 45%, var(--text)); }
+.events li.todo { border-left-style: dashed; background: var(--bg); outline: 1px dashed color-mix(in srgb, var(--primary) 35%, transparent); outline-offset: -1px; }
 .events li.past { opacity: 0.5; }
 .events li.empty { border: none; background: none; color: var(--muted); justify-content: center; }
 

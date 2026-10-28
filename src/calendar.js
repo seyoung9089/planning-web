@@ -3,7 +3,7 @@ import koLocale from '@fullcalendar/core/locales/ko';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import { listEventsBetween, listTodos, updateEvent, setTodoDone, setTodoDueDate } from './shared/api.js';
+import { listEventsBetween, listTodos, updateEvent, setTodoDone, setTodoDueDate, setTodoSchedule } from './shared/api.js';
 import { toDateKey, toTimeKey, addDays } from './shared/dates.js';
 import { openNewEvent, openEditEvent } from './eventDialog.js';
 import { DEFAULT_COLOR } from './colors.js';
@@ -33,18 +33,25 @@ function eventToCalendar(row) {
   };
 }
 
-// 마감일이 있는 할 일은 그날 칸에 체크 표시와 함께 보여 줍니다
+// 할 일은 체크 표시와 함께 보여 줍니다.
+// 교시(시간)를 정했으면 그 시간 칸에, 아니면 마감일 칸에 나옵니다.
 function todoToCalendar(row) {
-  const overdue = !row.done && row.due_date < toDateKey(new Date());
-  return {
+  const overdue = !row.done && row.due_date && row.due_date < toDateKey(new Date());
+  const base = {
     id: 'todo-' + row.id,
     title: (row.done ? '✓ ' : '○ ') + row.title,
-    start: row.due_date,
-    allDay: true,
     classNames: ['todo-item', row.done ? 'done' : '', overdue ? 'overdue' : ''],
-    durationEditable: false,
     extendedProps: { kind: 'todo', row },
   };
+  if (row.scheduled_start) {
+    return { ...base, start: row.scheduled_start, end: row.scheduled_end, allDay: false, classNames: [...base.classNames, 'scheduled'] };
+  }
+  return { ...base, start: row.due_date, allDay: true, durationEditable: false };
+}
+
+function todoVisible(row, from, to) {
+  if (row.scheduled_start) return new Date(row.scheduled_start) < to && new Date(row.scheduled_end) > from;
+  return row.due_date && row.due_date >= toDateKey(from) && row.due_date < toDateKey(to);
 }
 
 // 제목: 월 보기는 "2026년 10월", 주 보기는 "2026년 10월" 또는 "2026년 10월 – 11월", 일 보기는 "10월 28일 (수)"
@@ -97,9 +104,7 @@ export function createCalendar(container, { onChange, onDatesSet } = {}) {
     events: async (info, success, failure) => {
       try {
         const [events, todos] = await Promise.all([listEventsBetween(info.start, info.end), listTodos()]);
-        const from = toDateKey(info.start);
-        const to = toDateKey(info.end);
-        const visibleTodos = todos.filter((t) => t.due_date && t.due_date >= from && t.due_date < to);
+        const visibleTodos = todos.filter((t) => todoVisible(t, info.start, info.end));
         success([...events.map(eventToCalendar), ...visibleTodos.map(todoToCalendar)]);
       } catch (err) {
         failure(err);
@@ -152,8 +157,13 @@ export function createCalendar(container, { onChange, onDatesSet } = {}) {
     const ev = info.event;
     const { kind, row } = ev.extendedProps;
     try {
-      if (kind === 'todo') {
+      if (kind === 'todo' && ev.allDay) {
+        // 종일 칸으로 옮기면 정해 둔 시간을 지우고 그 날을 마감일로 합니다
+        if (row.scheduled_start) await setTodoSchedule(row.id, null, null);
         await setTodoDueDate(row.id, toDateKey(ev.start));
+      } else if (kind === 'todo') {
+        const end = ev.end ?? new Date(ev.start.getTime() + 45 * 60000);
+        await setTodoSchedule(row.id, ev.start, end);
       } else {
         // 끝 시간이 비어 있으면 하루 종일은 1일, 시간 일정은 1시간으로 봅니다
         const end = ev.end ?? (ev.allDay ? addDays(ev.start, 1) : new Date(ev.start.getTime() + 3600000));

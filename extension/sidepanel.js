@@ -1,7 +1,8 @@
 import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import '../src/shared/base.css';
 import './sidepanel.css';
-import { onAuthChange, signOut, subscribeChanges, listEventsBetween, addEvent, addTodo } from '../src/shared/api.js';
+import { onAuthChange, signOut, subscribeChanges, listEventsBetween, listTodos, addEvent, addTodo } from '../src/shared/api.js';
+import { periodLabel } from '../src/shared/timetable.js';
 import { renderAuthForm, createTodoList } from '../src/shared/ui.js';
 import { parseQuick } from '../src/shared/quickParse.js';
 import { toDateKey, addDays } from '../src/shared/dates.js';
@@ -126,7 +127,7 @@ function renderPanel() {
           <div class="bar"><span style="width:${progress}%"></span></div>
         </div>`,
       );
-      nowNext.lastElementChild.querySelector('.title').textContent = current.title;
+      nowNext.lastElementChild.querySelector('.title').textContent = (current.kind === 'todo' ? '○ ' : '') + current.title;
     }
     if (next) {
       const start = new Date(next.start_at);
@@ -137,7 +138,7 @@ function renderPanel() {
           <span class="meta">${hm(start)} 시작 · <b>${duration(start - now)} 후</b></span>
         </div>`,
       );
-      nowNext.lastElementChild.querySelector('.title').textContent = next.title;
+      nowNext.lastElementChild.querySelector('.title').textContent = (next.kind === 'todo' ? '○ ' : '') + next.title;
     }
     if (!current && !next) {
       nowNext.innerHTML = '<div class="card empty">오늘 남은 일정이 없어요 🎉</div>';
@@ -153,11 +154,14 @@ function renderPanel() {
     const now = Date.now();
     for (const ev of todayEvents) {
       const li = document.createElement('li');
-      if (new Date(ev.end_at).getTime() < now) li.className = 'past';
+      li.classList.toggle('past', new Date(ev.end_at).getTime() < now);
+      li.classList.toggle('todo', ev.kind === 'todo');
       li.style.setProperty('--ev', ev.color || '#2383e2');
       li.innerHTML = '<span class="time"></span><span class="title"></span>';
-      li.querySelector('.time').textContent = ev.all_day ? '종일' : `${hm(new Date(ev.start_at))}–${hm(new Date(ev.end_at))}`;
-      li.querySelector('.title').textContent = ev.title;
+      const start = new Date(ev.start_at);
+      const end = new Date(ev.end_at);
+      li.querySelector('.time').textContent = ev.all_day ? '종일' : `${hm(start)}–${hm(end)}`;
+      li.querySelector('.title').textContent = ev.kind === 'todo' ? `○ ${ev.title} · ${periodLabel(start, end)}` : ev.title;
       eventList.append(li);
     }
   }
@@ -165,12 +169,34 @@ function renderPanel() {
   async function refreshEvents() {
     const from = new Date();
     from.setHours(0, 0, 0, 0);
-    todayEvents = await listEventsBetween(from, addDays(from, 1));
+    const to = addDays(from, 1);
+    const [events, todos] = await Promise.all([listEventsBetween(from, to), listTodos()]);
+    // 오늘 몇 교시에 하기로 정한 할 일도 일정처럼 함께 보여 줍니다
+    const scheduledTodos = todos
+      .filter((t) => !t.done && t.scheduled_start && new Date(t.scheduled_start) < to && new Date(t.scheduled_end) > from)
+      .map((t) => ({
+        id: t.id,
+        title: t.title,
+        start_at: t.scheduled_start,
+        end_at: t.scheduled_end,
+        all_day: false,
+        kind: 'todo',
+      }));
+    todayEvents = [...events, ...scheduledTodos].sort((a, b) => {
+      if (a.all_day !== b.all_day) return a.all_day ? -1 : 1;
+      return new Date(a.start_at) - new Date(b.start_at);
+    });
     renderNowNext();
     renderEvents();
   }
 
-  const todoList = createTodoList(document.getElementById('todo-list'), { showForm: false, onChange: notifyBackground });
+  const todoList = createTodoList(document.getElementById('todo-list'), {
+    showForm: false,
+    onChange: () => {
+      refreshEvents();
+      notifyBackground();
+    },
+  });
   function refreshAll() {
     refreshEvents();
     todoList.refresh();

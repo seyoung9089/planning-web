@@ -54,6 +54,15 @@ export async function setTodoDueDate(id, dueDate) {
   if (error) throw error;
 }
 
+// 할 일을 언제 할지(시작·끝 시각) 정합니다. null을 넘기면 지웁니다
+export async function setTodoSchedule(id, startAt, endAt) {
+  const { error } = await supabase
+    .from('todos')
+    .update({ scheduled_start: startAt?.toISOString() ?? null, scheduled_end: endAt?.toISOString() ?? null })
+    .eq('id', id);
+  if (error) throw error;
+}
+
 export async function deleteTodo(id) {
   const { error } = await supabase.from('todos').delete().eq('id', id);
   if (error) throw error;

@@ -9,7 +9,7 @@
 .brand-row { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px; }
 .brand { font-size: 15px; font-weight: 700; }
 .side-section h2 { font-size: 12px; font-weight: 600; color: var(--muted); margin: 0 4px 8px; letter-spacing: 0.02em; }
-.side-section { flex: 1; min-height: 0; }
+.side-section { flex: 1; min-height: 120px; overflow-y: auto; }
 .account { display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 8px 4px 0; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); }
 .account .email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -113,6 +113,8 @@ button.icon-btn:hover { background: var(--hover); color: var(--text); }
 /* 할 일은 테두리만 있는 칸으로 일정과 구분합니다 */
 .fc .todo-item { background: var(--bg); border: 1.5px solid var(--border-strong); }
 .fc .todo-item .fc-event-main { color: var(--text); font-weight: 500; padding: 1px 4px; }
+.fc .todo-item.scheduled { border-style: dashed; border-color: var(--primary); background: color-mix(in srgb, var(--primary) 5%, var(--bg)); }
+.fc .todo-item.scheduled .fc-event-time { color: var(--muted); font-size: 11px; }
 .fc .todo-item.done { opacity: 0.5; }
 .fc .todo-item.done .fc-event-title { text-decoration: line-through; }
 .fc .todo-item.overdue { border-color: var(--danger); }
