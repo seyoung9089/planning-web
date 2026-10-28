@@ -35,3 +35,19 @@ const cases = {
 for (const [input, want] of Object.entries(cases)) {
   test(input, () => assert.equal(summary(input), want));
 }
+
+// 저녁활동: 시간을 직접 쓰지 않아도 학교 규칙대로 시간이 정해집니다
+const eveningSummary = (input, at = now) => {
+  const r = parseQuick(input, at);
+  const sc = r.schedule;
+  return `${r.kind} ${r.title} ${sc ? `${day(sc.startAt)} ${hm(sc.startAt)}-${hm(sc.endAt)}` : '-'}`;
+};
+
+test('저녁활동 1', () => assert.equal(eveningSummary('저녁활동 1 수학 숙제'), 'todo 수학 숙제 10/28 19:00-20:00'));
+test('저녁활동 2교시', () => assert.equal(eveningSummary('저녁활동 2교시 영어'), 'todo 영어 10/28 20:00-21:00'));
+test('저녁활동 1~2', () => assert.equal(eveningSummary('저녁활동 1~2 독서'), 'todo 독서 10/28 19:00-21:00'));
+test('그냥 저녁활동', () => assert.equal(eveningSummary('저녁활동 과학 보고서'), 'todo 과학 보고서 10/28 19:00-21:00'));
+test('내일 저녁활동 2', () => assert.equal(eveningSummary('내일 저녁활동 2 수행평가'), 'todo 수행평가 10/29 20:00-21:00'));
+test('오늘 저녁활동이 이미 끝났으면 내일로', () =>
+  assert.equal(eveningSummary('저녁활동 1 숙제', new Date(2026, 9, 28, 21, 30)), 'todo 숙제 10/29 19:00-20:00'));
+test('저녁 8시처럼 시간을 직접 쓰면 일정', () => assert.equal(summary('저녁 8시 저녁활동 독서'), '일정 저녁활동 독서 10/28 20:00-21:00'));

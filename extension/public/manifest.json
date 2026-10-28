@@ -3,7 +3,7 @@
   "name": "planning-web 빠른 일정",
   "description": "어느 탭에서든 옆에 패널을 열어 할 일과 일정을 바로 등록합니다.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAl3d/8iWFV41xhFT3KupODQsG9T9uvZ5mQ4of2+5irfJV32fpMF2R2Yn6B8vCsIl/gf8sT/s0Li7VPMygotAyZ4GJ4g5QWfoKJvOGJGdl24/3MRprBQNzwbjy3CHfVHoFcYXKX2bfICovGvpR7+0NVLZk1hsL6f/PbmsDkcR8K7V4bu8TtmvBImfvnJbk1t+ZnK1DX3KRAJT2r4WFSpiOE8ROjBnrF2GdLBcFkLakH4BBmSOxmTXYpaqBDkoyqIIwbTinbSarPRB0gFxPLCC/yYs0khfPeWs6Ef0kB4NeuGL9LevfFWjO86CtQriDnTmqivjsMcppG0fxxwadoG5tPwIDAQAB",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "minimum_chrome_version": "116",
   "permissions": [
     "sidePanel",

@@ -18,6 +18,11 @@ export const PERIODS = [
   { id: 'ev2', label: '저녁활동 2', start: '20:00', end: '21:00' },
 ];
 
+// 수업 시간표로 한꺼번에 넣은 일정은 메모에 이 표시가 붙어 있습니다.
+// 월 보기에서는 숨기고, 할 일 시간과 헷갈리지 않게 따로 꾸밉니다.
+export const TIMETABLE_MEMO = '[시간표]';
+export const isTimetable = (row) => row?.memo === TIMETABLE_MEMO;
+
 // 그날 각 교시에 이미 무엇이 있는지 계산합니다.
 // items: [{ title, start, end }] (Date), 돌려주는 값: 교시마다 겹치는 일정 이름 목록
 export function busyByPeriod(dateKey, items) {

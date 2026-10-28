@@ -1,4 +1,5 @@
-import { addDays } from './dates.js';
+import { addDays, toDateKey } from './dates.js';
+import { PERIODS, periodRange } from './timetable.js';
 
 // "내일 7시 학원", "금요일 수행평가", "11/3 오후 3시~5시 독서실" 같은 한 줄을 읽어서
 // 시간이 있으면 일정, 없으면 마감일이 있는 할 일로 바꿉니다.
@@ -90,10 +91,42 @@ function takeTime(text) {
   return [null, text];
 }
 
+// "저녁활동 1" → 19:00~20:00, "저녁활동 2" → 20:00~21:00, "저녁활동 1~2"나 그냥 "저녁활동" → 19:00~21:00
+// (저녁활동 1·2교시는 우리 학교 시간표 규칙입니다)
+const EVENING = /저녁\s?활동\s?(?:([12])(?:\s?(?:~|-|,|·)\s?([12]))?)?\s?(?:교시)?/;
+const EV_INDEX = PERIODS.findIndex((p) => p.id === 'ev1');
+
+// 글에 저녁활동이 있으면 { title, date(글에 쓴 날짜 또는 null), schedule: { startAt, endAt } }를, 없으면 null을 돌려줍니다.
+// 날짜를 안 썼으면 오늘, 오늘 저녁활동이 이미 끝났으면 내일로 잡습니다.
+export function parseEvening(input, now = new Date()) {
+  const text = ` ${input.trim()} `;
+  const m = text.match(EVENING);
+  if (!m) return null;
+  const first = m[1] ? Number(m[1]) : 1;
+  const last = m[2] ? Number(m[2]) : m[1] ? first : 2;
+  const [date, rest] = takeDate(text.replace(m[0], ' '), now);
+  const title = rest.replace(/\s+/g, ' ').trim();
+  const lo = Math.min(first, last);
+  const hi = Math.max(first, last);
+  const range = (day) => periodRange(toDateKey(day), EV_INDEX + lo - 1, EV_INDEX + hi - 1);
+  let day = date ?? startOfDay(now);
+  let schedule = range(day);
+  if (!date && schedule.endAt <= now) {
+    day = addDays(day, 1);
+    schedule = range(day);
+  }
+  return { title: title || input.trim(), date, schedule };
+}
+
 export function parseQuick(input, now = new Date()) {
   let text = ` ${input.trim()} `;
   const [time, afterTime] = takeTime(text);
   text = afterTime;
+  // 시간을 직접 쓰지 않고 저녁활동이라고만 썼으면 그 교시에 하는 할 일로 만듭니다
+  if (!time) {
+    const evening = parseEvening(input, now);
+    if (evening) return { kind: 'todo', title: evening.title, dueDate: evening.date, schedule: evening.schedule };
+  }
   const [date, afterDate] = takeDate(text, now);
   text = afterDate;
   const title = text.replace(/\s+/g, ' ').trim();

@@ -114,6 +114,12 @@ button.icon-btn:hover { background: var(--hover); color: var(--text); }
 .fc .fc-timegrid-event-harness-inset .fc-timegrid-event { box-shadow: 0 0 0 1px var(--bg); }
 .fc .fc-event-mirror { opacity: 0.8; }
 
+/* 수업 시간표: 배경처럼 차분한 회색 칸. 지난 것도 흐리게 하지 않습니다 */
+.fc .ev.timetable { background: var(--surface); border-left: 3px solid var(--border-strong); cursor: pointer; }
+.fc .ev.timetable:hover { background: color-mix(in srgb, var(--text) 8%, var(--surface)); }
+.fc .ev.timetable .fc-event-main { color: var(--muted); }
+.fc .ev.timetable .fc-event-title { font-weight: 500; }
+
 /* 할 일은 테두리만 있는 칸으로 일정과 구분합니다 */
 .fc .todo-item { background: var(--bg); border: 1.5px solid var(--border-strong); }
 .fc .todo-item .fc-event-main { color: var(--text); font-weight: 500; padding: 1px 4px; }
