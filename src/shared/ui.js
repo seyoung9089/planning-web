@@ -3,6 +3,7 @@ import { toDateKey, addDays, dueLabel } from './dates.js';
 import { periodLabel } from './timetable.js';
 import { openPeriodPicker } from './schedulePicker.js';
 import { sortTodos } from './todoOrder.js';
+import { parseEvening } from './quickParse.js';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -138,7 +139,13 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
     e.preventDefault();
     const title = form.title.value.trim();
     if (!title) return;
-    await addTodo(title, form.due.value || null);
+    // "저녁활동 1 수학 숙제"처럼 쓰면 오후 7~8시로 정해서 저장합니다
+    const evening = parseEvening(title);
+    if (evening) {
+      await addTodo(evening.title, form.due.value || (evening.date ? toDateKey(evening.date) : null), evening.schedule);
+    } else {
+      await addTodo(title, form.due.value || null);
+    }
     form.title.value = '';
     form.due.value = '';
     syncDueButtons();

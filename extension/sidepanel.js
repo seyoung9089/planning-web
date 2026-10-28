@@ -2,7 +2,7 @@ import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import '../src/shared/base.css';
 import './sidepanel.css';
 import { onAuthChange, signOut, subscribeChanges, listEventsBetween, listTodos, addEvent, addTodo } from '../src/shared/api.js';
-import { periodLabel } from '../src/shared/timetable.js';
+import { periodLabel, isTimetable } from '../src/shared/timetable.js';
 import { renderAuthForm, createTodoList } from '../src/shared/ui.js';
 import { parseQuick } from '../src/shared/quickParse.js';
 import { toDateKey, addDays } from '../src/shared/dates.js';
@@ -68,7 +68,7 @@ function renderPanel() {
   function showPreview() {
     const text = form.text.value.trim();
     if (!text) {
-      preview.innerHTML = '<span class="hint">시간을 쓰면 일정, 안 쓰면 할 일로 저장돼요. Enter로 추가</span>';
+      preview.innerHTML = '<span class="hint">시간을 쓰면 일정, 안 쓰면 할 일(저녁활동 1·2도 돼요). Enter로 추가</span>';
       return;
     }
     const parsed = parseQuick(text);
@@ -79,7 +79,9 @@ function renderPanel() {
       chip.textContent = `📅 일정 · ${dayName(parsed.startAt)} ${hm(parsed.startAt)}–${hm(parsed.endAt)} · ${parsed.title}`;
     } else {
       chip.className = 'chip todo';
-      chip.textContent = `☑ 할 일${parsed.dueDate ? ` · 마감 ${dayName(parsed.dueDate)}` : ''} · ${parsed.title}`;
+      chip.textContent = parsed.schedule
+        ? `☑ 할 일 · ${dayName(parsed.schedule.startAt)} ${periodLabel(parsed.schedule.startAt, parsed.schedule.endAt)} · ${parsed.title}`
+        : `☑ 할 일${parsed.dueDate ? ` · 마감 ${dayName(parsed.dueDate)}` : ''} · ${parsed.title}`;
     }
     preview.append(chip);
   }
@@ -95,7 +97,7 @@ function renderPanel() {
       if (parsed.kind === 'event') {
         await addEvent({ title: parsed.title, startAt: parsed.startAt, endAt: parsed.endAt });
       } else {
-        await addTodo(parsed.title, parsed.dueDate ? toDateKey(parsed.dueDate) : null);
+        await addTodo(parsed.title, parsed.dueDate ? toDateKey(parsed.dueDate) : null, parsed.schedule);
       }
       form.text.value = '';
       showPreview();
@@ -154,7 +156,8 @@ function renderPanel() {
     const now = Date.now();
     for (const ev of todayEvents) {
       const li = document.createElement('li');
-      li.classList.toggle('past', new Date(ev.end_at).getTime() < now);
+      // 수업 시간표는 지나간 것도 흐리게 하지 않습니다
+      li.classList.toggle('past', new Date(ev.end_at).getTime() < now && !isTimetable(ev));
       li.classList.toggle('todo', ev.kind === 'todo');
       li.style.setProperty('--ev', ev.color || '#2383e2');
       li.innerHTML = '<span class="time"></span><span class="title"></span>';

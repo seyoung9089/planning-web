@@ -7,6 +7,7 @@ import { listEventsBetween, listTodos, updateEvent, setTodoDone, setTodoDueDate,
 import { toDateKey, toTimeKey, addDays } from './shared/dates.js';
 import { openNewEvent, openEditEvent } from './eventDialog.js';
 import { DEFAULT_COLOR } from './colors.js';
+import { isTimetable } from './shared/timetable.js';
 
 const VIEW_KEY = 'planning-web:view';
 const FULL_DAY_KEY = 'planning-web:full-day';
@@ -33,6 +34,7 @@ function savedView() {
 
 // 일정(events 테이블)을 캘린더가 이해하는 모양으로 바꿉니다
 function eventToCalendar(row) {
+  const timetable = isTimetable(row);
   const past = new Date(row.end_at) < new Date();
   return {
     id: row.id,
@@ -40,7 +42,9 @@ function eventToCalendar(row) {
     start: row.start_at,
     end: row.end_at,
     allDay: row.all_day,
-    classNames: ['ev', past ? 'past' : ''],
+    // 수업 시간표는 지나간 것도 흐리게 하지 않고, 실수로 끌어서 옮기지 않게 고정합니다
+    classNames: ['ev', timetable ? 'timetable' : past ? 'past' : ''],
+    ...(timetable ? { startEditable: false, durationEditable: false } : {}),
     extendedProps: { kind: 'event', row, color: row.color || DEFAULT_COLOR },
   };
 }
@@ -86,6 +90,7 @@ export function createCalendar(container, { onChange, onDatesSet } = {}) {
   };
 
   let fullDay = savedFullDay();
+  let shownAsMonth = savedView() === 'dayGridMonth';
   const calendar = new Calendar(container, {
     plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
     locale: koLocale,
@@ -124,7 +129,9 @@ export function createCalendar(container, { onChange, onDatesSet } = {}) {
       try {
         const [events, todos] = await Promise.all([listEventsBetween(info.start, info.end), listTodos()]);
         const visibleTodos = todos.filter((t) => todoVisible(t, info.start, info.end));
-        success([...events.map(eventToCalendar), ...visibleTodos.map(todoToCalendar)]);
+        // 월 보기는 한 달 계획용이라 수업 시간표는 숨기고 할 일과 내가 넣은 일정만 보여 줍니다
+        const shown = calendar.view?.type === 'dayGridMonth' ? events.filter((row) => !isTimetable(row)) : events;
+        success([...shown.map(eventToCalendar), ...visibleTodos.map(todoToCalendar)]);
       } catch (err) {
         failure(err);
       }
@@ -158,6 +165,12 @@ export function createCalendar(container, { onChange, onDatesSet } = {}) {
     eventResize: (info) => saveMoved(info),
 
     datesSet: (info) => {
+      // 월 ↔ 주·일을 오갈 때 수업 시간표를 보였다 숨겼다 하도록 다시 불러옵니다
+      const monthView = info.view.type === 'dayGridMonth';
+      if (monthView !== shownAsMonth) {
+        shownAsMonth = monthView;
+        queueMicrotask(() => calendar.refetchEvents());
+      }
       try {
         localStorage.setItem(VIEW_KEY, info.view.type);
       } catch {

@@ -36,8 +36,14 @@ export async function listTodos() {
   return data;
 }
 
-export async function addTodo(title, dueDate = null) {
-  const { error } = await supabase.from('todos').insert({ title, due_date: dueDate });
+// schedule: { startAt, endAt }를 주면 처음부터 그 시간(교시)에 하기로 정해 저장합니다
+export async function addTodo(title, dueDate = null, schedule = null) {
+  const row = { title, due_date: dueDate };
+  if (schedule) {
+    row.scheduled_start = schedule.startAt.toISOString();
+    row.scheduled_end = schedule.endAt.toISOString();
+  }
+  const { error } = await supabase.from('todos').insert(row);
   if (error) throw error;
 }
 
