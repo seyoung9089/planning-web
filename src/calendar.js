@@ -9,7 +9,19 @@ import { openNewEvent, openEditEvent } from './eventDialog.js';
 import { DEFAULT_COLOR } from './colors.js';
 
 const VIEW_KEY = 'planning-web:view';
+const FULL_DAY_KEY = 'planning-web:full-day';
+// 평소에는 학교 일과 시간(아침 8:30 ~ 저녁 9:00)만 보여 줍니다
+const SCHOOL_HOURS = { slotMinTime: '08:30:00', slotMaxTime: '21:00:00', scrollTime: '08:30:00' };
+const FULL_DAY = { slotMinTime: '00:00:00', slotMaxTime: '24:00:00', scrollTime: '08:00:00' };
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+function savedFullDay() {
+  try {
+    return localStorage.getItem(FULL_DAY_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 
 function savedView() {
   try {
@@ -73,6 +85,7 @@ export function createCalendar(container, { onChange, onDatesSet } = {}) {
     onChange?.();
   };
 
+  let fullDay = savedFullDay();
   const calendar = new Calendar(container, {
     plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
     locale: koLocale,
@@ -80,14 +93,20 @@ export function createCalendar(container, { onChange, onDatesSet } = {}) {
     headerToolbar: false,
     height: '100%',
     nowIndicator: true,
-    scrollTime: '07:00:00',
+    ...(fullDay ? FULL_DAY : SCHOOL_HOURS),
     dayMaxEvents: true,
     eventDisplay: 'block',
     selectable: true,
     selectMirror: true,
     editable: true,
     allDayText: '종일',
-    slotLabelFormat: { hour: 'numeric', hour12: true },
+    // 8:30부터 시작해도 시간 글자가 정각 줄에 붙도록 30분마다 칸을 나누고 정각에만 "오전 9시"처럼 씁니다
+    slotLabelInterval: '00:30',
+    slotLabelContent: (arg) => {
+      if (arg.date.getMinutes() !== 0) return '';
+      const h = arg.date.getHours();
+      return `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}시`;
+    },
     eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
 
     // 요일 머리글: "수 28"처럼 쓰고, 오늘은 빨간 배지로 표시합니다
@@ -182,6 +201,19 @@ export function createCalendar(container, { onChange, onDatesSet } = {}) {
     gotoDate: (date) => calendar.gotoDate(date),
     changeView: (type) => calendar.changeView(type),
     today: () => calendar.today(),
+    // 전체 시간(0~24시) ↔ 학교 일과 시간 전환. 바뀐 상태(true면 전체)를 돌려줍니다
+    toggleFullDay: () => {
+      fullDay = !fullDay;
+      try {
+        localStorage.setItem(FULL_DAY_KEY, fullDay ? '1' : '0');
+      } catch {
+        // 저장이 안 되면 이번에만 적용됩니다
+      }
+      for (const [key, value] of Object.entries(fullDay ? FULL_DAY : SCHOOL_HOURS)) calendar.setOption(key, value);
+      calendar.scrollToTime(fullDay ? FULL_DAY.scrollTime : SCHOOL_HOURS.scrollTime);
+      return fullDay;
+    },
+    isFullDay: () => fullDay,
     prev: () => calendar.prev(),
     next: () => calendar.next(),
   };

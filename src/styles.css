@@ -47,6 +47,10 @@ button.icon-btn:hover { background: var(--hover); color: var(--text); }
 .segmented button { border: none; background: none; padding: 4px 14px; font-size: 14px; color: var(--muted); border-radius: 6px; }
 .segmented button.active { background: var(--bg); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
 #calendar { flex: 1; min-height: 0; }
+/* 전체 시간 버튼: 꺼져 있으면 옅게, 켜면 진하게 */
+.cal-controls > button.ghost-toggle { border-color: transparent; background: none; color: var(--muted); }
+.cal-controls > button.ghost-toggle:hover { background: var(--hover); color: var(--text); }
+.cal-controls > button.ghost-toggle.active { background: var(--surface); color: var(--text); font-weight: 600; }
 
 @media (max-width: 860px) {
   .shell { grid-template-columns: 1fr; height: auto; }
