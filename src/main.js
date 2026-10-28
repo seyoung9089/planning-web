@@ -5,6 +5,7 @@ import { onAuthChange, signOut, subscribeChanges } from './shared/api.js';
 import { renderAuthForm, createTodoList } from './shared/ui.js';
 import { createCalendar } from './calendar.js';
 import { createMiniCalendar } from './miniCalendar.js';
+import { openInstallGuide } from './installGuide.js';
 
 const app = document.getElementById('app');
 let unsubscribe = null;
@@ -36,6 +37,7 @@ onAuthChange((session) => {
         <h2>할 일</h2>
         <div id="todo-list"></div>
       </section>
+      <button id="install" class="install-btn">🧩 어느 화면에서든 쓰는 패널 설치</button>
       <footer class="account">
         <span class="email"></span>
         <button id="logout" class="ghost">로그아웃</button>
@@ -59,6 +61,7 @@ onAuthChange((session) => {
     </main>`;
   app.querySelector('.email').textContent = session.user.email;
   app.querySelector('#logout').addEventListener('click', signOut);
+  app.querySelector('#install').addEventListener('click', openInstallGuide);
 
   const title = document.getElementById('cal-title');
   const viewButtons = app.querySelectorAll('[data-view]');

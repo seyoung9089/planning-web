@@ -1,22 +1,44 @@
-body { font-size: 14px; }
+body { font-size: 14px; background: var(--bg); }
 .panel-top { display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 14px; border-bottom: 1px solid var(--border); }
-.panel-top button { padding: 4px 10px; font-size: 13px; }
-#app { padding: 14px; display: grid; gap: 20px; }
-#app h2 { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+  padding: 12px 14px; border-bottom: 1px solid var(--border); background: var(--sidebar); }
+.panel-top strong { font-size: 15px; }
+.panel-top span { display: flex; align-items: center; gap: 2px; }
+.ghost-link { font-size: 12px; color: var(--muted); text-decoration: none; padding: 4px 8px; border-radius: 6px; }
+.ghost-link:hover { background: var(--hover); color: var(--text); }
+button.ghost { border-color: transparent; background: none; padding: 4px 8px; font-size: 12px; color: var(--muted); }
+#app { padding: 14px; display: grid; gap: 18px; }
+#app h2 { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 8px; letter-spacing: 0.02em; }
 .auth { margin: 16px 0; padding: 16px; }
 
-.events { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; }
-.events li { display: grid; gap: 2px; padding: 8px 10px; border-left: 4px solid var(--primary);
-  background: var(--surface); border-radius: 6px; }
-.events li .time { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.events li .title { font-weight: 600; }
-.events li.past { opacity: 0.5; }
-.events li.empty { border: none; background: none; color: var(--muted); text-align: center; }
+/* 빠른 입력 */
+.quick { display: grid; gap: 6px; }
+.quick input { font-size: 15px; padding: 12px 14px; border-radius: 10px; border: 1.5px solid var(--border-strong); }
+.preview { margin: 0; min-height: 22px; display: flex; flex-wrap: wrap; gap: 6px; font-size: 12.5px; }
+.preview .hint { color: var(--faint); }
+.preview .chip { padding: 2px 8px; border-radius: 6px; font-weight: 500; }
+.preview .chip.event { background: color-mix(in srgb, var(--primary) 14%, var(--bg)); color: color-mix(in srgb, var(--primary) 60%, var(--text)); }
+.preview .chip.todo { background: var(--surface); color: var(--text); }
+.preview .saved { color: #0f7b6c; font-weight: 600; }
 
-.event-add { display: grid; gap: 8px; }
-.event-add .row { align-items: center; }
-.event-add .row input { flex: 1; min-width: 0; padding: 8px; }
-.event-add .dash { color: var(--muted); }
-.event-add .message { margin: 0; color: var(--danger); font-size: 13px; }
-.event-add .message:empty { display: none; }
+/* 지금 / 다음 */
+.now-next { display: grid; gap: 8px; }
+.card { --ev: var(--primary); display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px;
+  background: color-mix(in srgb, var(--ev) 12%, var(--bg)); border-left: 4px solid var(--ev); }
+.card .label { font-size: 11px; font-weight: 700; color: color-mix(in srgb, var(--ev) 70%, var(--text)); }
+.card .title { font-size: 16px; }
+.card .meta { font-size: 12.5px; color: var(--muted); }
+.card .meta b { color: var(--text); }
+.card .bar { height: 4px; border-radius: 99px; background: color-mix(in srgb, var(--ev) 20%, var(--bg)); margin-top: 6px; overflow: hidden; }
+.card .bar span { display: block; height: 100%; background: var(--ev); }
+.card.empty { border-left-color: var(--border-strong); background: var(--surface); color: var(--muted); }
+
+/* 오늘 일정 */
+.events { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.events li { --ev: var(--primary); display: flex; gap: 10px; align-items: baseline; padding: 6px 10px;
+  border-left: 3px solid var(--ev); background: color-mix(in srgb, var(--ev) 10%, var(--bg)); border-radius: 4px; }
+.events li .time { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 78px; }
+.events li .title { font-weight: 600; color: color-mix(in srgb, var(--ev) 45%, var(--text)); }
+.events li.past { opacity: 0.5; }
+.events li.empty { border: none; background: none; color: var(--muted); justify-content: center; }
+
+.todos li { padding: 6px 2px; }

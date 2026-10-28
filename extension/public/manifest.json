@@ -2,17 +2,43 @@
   "manifest_version": 3,
   "name": "planning-web 빠른 일정",
   "description": "어느 탭에서든 옆에 패널을 열어 할 일과 일정을 바로 등록합니다.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "minimum_chrome_version": "116",
-  "permissions": ["sidePanel"],
-  "host_permissions": ["https://hxhwncbetmnurjwvnvlv.supabase.co/*"],
-  "background": { "service_worker": "background.js" },
-  "side_panel": { "default_path": "sidepanel.html" },
-  "action": { "default_title": "planning-web 패널 열기" },
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "alarms",
+    "notifications"
+  ],
+  "host_permissions": [
+    "https://hxhwncbetmnurjwvnvlv.supabase.co/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "action": {
+    "default_title": "planning-web 패널 열기 (Alt+S)",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
+  },
   "commands": {
     "_execute_action": {
-      "suggested_key": { "default": "Alt+S" },
+      "suggested_key": {
+        "default": "Alt+S"
+      },
       "description": "패널 열기"
     }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
   }
 }
