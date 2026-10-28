@@ -4,11 +4,12 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { listEventsBetween, listTodos, updateEvent, setTodoDone, setTodoDueDate } from './shared/api.js';
-import { toDateKey, addDays } from './shared/dates.js';
+import { toDateKey, toTimeKey, addDays } from './shared/dates.js';
 import { openNewEvent, openEditEvent } from './eventDialog.js';
 import { DEFAULT_COLOR } from './colors.js';
 
 const VIEW_KEY = 'planning-web:view';
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
 function savedView() {
   try {
@@ -20,15 +21,15 @@ function savedView() {
 
 // 일정(events 테이블)을 캘린더가 이해하는 모양으로 바꿉니다
 function eventToCalendar(row) {
+  const past = new Date(row.end_at) < new Date();
   return {
     id: row.id,
     title: row.title,
     start: row.start_at,
     end: row.end_at,
     allDay: row.all_day,
-    backgroundColor: row.color || DEFAULT_COLOR,
-    borderColor: row.color || DEFAULT_COLOR,
-    extendedProps: { kind: 'event', row },
+    classNames: ['ev', past ? 'past' : ''],
+    extendedProps: { kind: 'event', row, color: row.color || DEFAULT_COLOR },
   };
 }
 
@@ -46,7 +47,20 @@ function todoToCalendar(row) {
   };
 }
 
-export function createCalendar(container, { onChange } = {}) {
+// 제목: 월 보기는 "2026년 10월", 주 보기는 "2026년 10월" 또는 "2026년 10월 – 11월", 일 보기는 "10월 28일 (수)"
+function titleFor(view) {
+  const start = view.currentStart;
+  const last = addDays(view.currentEnd, -1);
+  if (view.type === 'timeGridDay') {
+    return `${start.getMonth() + 1}월 ${start.getDate()}일 (${WEEKDAYS[start.getDay()]})`;
+  }
+  if (view.type === 'timeGridWeek' && last.getMonth() !== start.getMonth()) {
+    return `${start.getFullYear()}년 ${start.getMonth() + 1}월 – ${last.getMonth() + 1}월`;
+  }
+  return `${start.getFullYear()}년 ${start.getMonth() + 1}월`;
+}
+
+export function createCalendar(container, { onChange, onDatesSet } = {}) {
   const changed = () => {
     calendar.refetchEvents();
     onChange?.();
@@ -55,24 +69,30 @@ export function createCalendar(container, { onChange } = {}) {
   const calendar = new Calendar(container, {
     plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
     locale: koLocale,
-    initialView: savedView() || (window.innerWidth < 700 ? 'timeGridDay' : 'dayGridMonth'),
-    headerToolbar: {
-      left: 'today prev,next title',
-      center: '',
-      right: 'dayGridMonth,timeGridWeek,timeGridDay',
-    },
-    views: {
-      timeGridWeek: { dayHeaderFormat: { day: 'numeric', weekday: 'short' } },
-    },
-    buttonText: { today: '오늘', month: '월', week: '주', day: '일' },
+    initialView: savedView() || (window.innerWidth < 700 ? 'timeGridDay' : 'timeGridWeek'),
+    headerToolbar: false,
     height: '100%',
     nowIndicator: true,
-    scrollTime: '08:00:00',
+    scrollTime: '07:00:00',
     dayMaxEvents: true,
+    eventDisplay: 'block',
     selectable: true,
     selectMirror: true,
     editable: true,
-    eventTimeFormat: { hour: 'numeric', minute: '2-digit', meridiem: 'short' },
+    allDayText: '종일',
+    slotLabelFormat: { hour: 'numeric', hour12: true },
+    eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+
+    // 요일 머리글: "수 28"처럼 쓰고, 오늘은 빨간 배지로 표시합니다
+    dayHeaderContent: (arg) => {
+      const dow = WEEKDAYS[arg.date.getDay()];
+      if (arg.view.type === 'dayGridMonth') return dow;
+      return { html: `<span class="dow">${dow}</span><span class="num">${arg.date.getDate()}</span>` };
+    },
+    dayCellContent: (arg) => (arg.view.type === 'dayGridMonth' ? String(arg.date.getDate()) : ''),
+
+    // 현재 시각 선 왼쪽에 "14:07" 같은 시간 표시
+    nowIndicatorContent: (arg) => (arg.isAxis ? { html: `<span class="now-label">${toTimeKey(arg.date)}</span>` } : null),
 
     events: async (info, success, failure) => {
       try {
@@ -84,6 +104,12 @@ export function createCalendar(container, { onChange } = {}) {
       } catch (err) {
         failure(err);
       }
+    },
+
+    // 일정 색은 CSS 변수로 넘겨서 "연한 배경 + 진한 왼쪽 선"으로 그립니다
+    eventDidMount: (info) => {
+      const color = info.event.extendedProps.color;
+      if (color) info.el.style.setProperty('--ev', color);
     },
 
     // 빈 칸을 누르거나 끌어서 범위를 고르면 새 일정 창을 엽니다
@@ -107,12 +133,18 @@ export function createCalendar(container, { onChange } = {}) {
     eventDrop: (info) => saveMoved(info),
     eventResize: (info) => saveMoved(info),
 
-    viewDidMount: (info) => {
+    datesSet: (info) => {
       try {
         localStorage.setItem(VIEW_KEY, info.view.type);
       } catch {
         // 저장이 안 되는 환경이면 다음에 기본 보기로 열립니다
       }
+      onDatesSet?.({
+        title: titleFor(info.view),
+        viewType: info.view.type,
+        start: info.view.currentStart,
+        end: info.view.currentEnd,
+      });
     },
   });
 
@@ -135,5 +167,12 @@ export function createCalendar(container, { onChange } = {}) {
   }
 
   calendar.render();
-  return { refresh: () => calendar.refetchEvents() };
+  return {
+    refresh: () => calendar.refetchEvents(),
+    gotoDate: (date) => calendar.gotoDate(date),
+    changeView: (type) => calendar.changeView(type),
+    today: () => calendar.today(),
+    prev: () => calendar.prev(),
+    next: () => calendar.next(),
+  };
 }

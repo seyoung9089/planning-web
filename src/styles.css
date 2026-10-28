@@ -1,66 +1,122 @@
-.topbar { display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 24px; border-bottom: 1px solid var(--border); height: 56px; }
-.topbar h1 { font-size: 20px; }
+/* ---- 전체 틀: 왼쪽 사이드바 + 오른쪽 캘린더 (노션 캘린더 구성) ---- */
+#app.logged-out { max-width: 400px; margin: 10vh auto 0; padding: 0 16px; }
+#app.logged-out .brand { font-size: 22px; text-align: center; }
 
-#app { display: grid; grid-template-columns: 1fr 320px; gap: 20px; padding: 16px 24px;
-  height: calc(100vh - 56px); }
-#app:has(.auth) { display: block; height: auto; }
-#app h2 { font-size: 16px; margin-bottom: 12px; }
+.shell { display: grid; grid-template-columns: 264px 1fr; height: 100vh; }
 
-.calendar-panel { min-height: 560px; min-width: 0; }
-#calendar { height: 100%; }
-.todo-panel { padding: 16px; border: 1px solid var(--border); border-radius: 12px;
-  overflow-y: auto; min-height: 0; }
+.sidebar { display: flex; flex-direction: column; gap: 18px; padding: 14px 14px 10px;
+  background: var(--sidebar); border-right: 1px solid var(--border); min-height: 0; overflow-y: auto; }
+.brand-row { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px; }
+.brand { font-size: 15px; font-weight: 700; }
+.side-section h2 { font-size: 12px; font-weight: 600; color: var(--muted); margin: 0 4px 8px; letter-spacing: 0.02em; }
+.side-section { flex: 1; min-height: 0; }
+.account { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 8px 4px 0; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); }
+.account .email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+button.ghost { border-color: transparent; background: none; padding: 4px 8px; font-size: 12px; color: var(--muted); }
+button.ghost:hover { background: var(--hover); color: var(--text); }
+button.icon-btn { border: none; background: none; padding: 2px 8px; font-size: 20px; line-height: 1; color: var(--muted); }
+button.icon-btn:hover { background: var(--hover); color: var(--text); }
 
-@media (max-width: 900px) {
-  #app { grid-template-columns: 1fr; height: auto; padding: 12px; }
-  .calendar-panel { height: 75vh; }
+/* 사이드바 할 일 목록은 조금 더 촘촘하게 */
+.sidebar .todo-add input:not([type='date']) { background: var(--bg); padding: 8px 10px; font-size: 14px; }
+.sidebar .todos li { padding: 6px 2px; font-size: 14px; border-bottom-color: var(--border); }
+
+/* ---- 미니 달력 ---- */
+.mini-cal { padding: 0 2px; }
+.mini-head { display: flex; align-items: center; justify-content: space-between; padding: 0 2px 6px; font-size: 14px; }
+.mini-grid { display: grid; grid-template-columns: repeat(7, 1fr); row-gap: 2px; text-align: center; }
+.mini-grid .dow { font-size: 11px; color: var(--faint); padding: 2px 0 4px; }
+.mini-grid .day { border: none; background: none; padding: 0; height: 28px; font-size: 12.5px; color: var(--text);
+  border-radius: 0; font-variant-numeric: tabular-nums; }
+.mini-grid .day:hover { background: var(--hover); border-radius: 6px; }
+.mini-grid .day.other { color: var(--faint); }
+.mini-grid .day.sun:not(.other) { color: var(--today); }
+.mini-grid .day.in-range { background: var(--hover); }
+.mini-grid .day.today { color: #fff; position: relative; z-index: 0; font-weight: 700; }
+.mini-grid .day.today::before { content: ''; position: absolute; inset: 2px 50%; translate: -12px 0; width: 24px;
+  border-radius: 999px; background: var(--today); z-index: -1; }
+
+/* ---- 오른쪽 캘린더 ---- */
+.cal-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.cal-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px 10px; }
+.cal-header h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; }
+.cal-controls { display: flex; align-items: center; gap: 6px; }
+.cal-controls > button:not(.icon-btn) { padding: 5px 12px; font-size: 14px; }
+.segmented { display: flex; padding: 2px; background: var(--surface); border-radius: 8px; }
+.segmented button { border: none; background: none; padding: 4px 14px; font-size: 14px; color: var(--muted); border-radius: 6px; }
+.segmented button.active { background: var(--bg); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
+#calendar { flex: 1; min-height: 0; }
+
+@media (max-width: 860px) {
+  .shell { grid-template-columns: 1fr; height: auto; }
+  .sidebar { order: 2; border-right: none; border-top: 1px solid var(--border); }
+  .sidebar #mini-calendar { display: none; }
+  .cal-main { height: 82vh; }
+  .cal-header { flex-wrap: wrap; padding: 10px 12px; }
+  .cal-header h1 { font-size: 19px; }
 }
 
-/* ---- 캘린더 (FullCalendar) ---- */
+/* ---- FullCalendar를 노션 캘린더 느낌으로 ---- */
 .fc {
   --fc-border-color: var(--border);
   --fc-page-bg-color: var(--bg);
-  --fc-neutral-bg-color: var(--surface);
-  --fc-today-bg-color: color-mix(in srgb, var(--primary) 8%, transparent);
-  --fc-now-indicator-color: #ea4335;
-  --fc-button-bg-color: var(--bg);
-  --fc-button-border-color: var(--border);
-  --fc-button-text-color: var(--text);
-  --fc-button-hover-bg-color: var(--surface);
-  --fc-button-hover-border-color: var(--border);
-  --fc-button-active-bg-color: color-mix(in srgb, var(--primary) 15%, var(--bg));
-  --fc-button-active-border-color: var(--primary);
-  --fc-event-border-color: transparent;
+  --fc-neutral-bg-color: var(--bg);
+  --fc-today-bg-color: transparent;
+  --fc-now-indicator-color: var(--today);
+  --fc-highlight-color: color-mix(in srgb, var(--primary) 12%, transparent);
+  font-size: 13px;
 }
-.fc .fc-toolbar { gap: 8px; flex-wrap: wrap; }
-.fc .fc-toolbar-chunk:first-child { display: flex; align-items: center; gap: 8px; }
-.fc .fc-toolbar-title { font-size: 22px; font-weight: 500; margin-left: 8px !important; }
-.fc .fc-button { border-radius: var(--radius) !important; padding: 6px 14px; font-weight: 500; box-shadow: none !important; white-space: nowrap; }
-.fc .fc-button-group > .fc-button { margin-left: 4px !important; }
-.fc .fc-button-primary:not(:disabled).fc-button-active { color: var(--primary); }
-.fc .fc-col-header-cell-cushion { color: var(--muted); font-weight: 500; padding: 6px 0; }
-.fc .fc-daygrid-day-number { color: var(--text); padding: 6px 8px; }
-.fc .fc-day-today .fc-daygrid-day-number { background: var(--primary); color: var(--primary-text);
-  border-radius: 999px; min-width: 26px; text-align: center; margin: 4px; padding: 2px 6px; }
-.fc .fc-day-sun .fc-daygrid-day-number, .fc .fc-day-sun .fc-col-header-cell-cushion { color: #d93025; }
-.fc .fc-day-sat .fc-daygrid-day-number, .fc .fc-day-sat .fc-col-header-cell-cushion { color: #1a73e8; }
-.fc .fc-event { border-radius: 4px; font-size: 13px; cursor: pointer; }
-.fc .fc-daygrid-dot-event .fc-event-title { font-weight: 600; }
-.fc .fc-timegrid-event .fc-event-title { font-weight: 600; }
+.fc .fc-scrollgrid { border-left: none; border-right: none; }
+.fc td, .fc th { border-color: var(--border); }
+.fc .fc-timegrid-slot-minor { border-top-color: transparent; }
+.fc .fc-timegrid-slot { height: 2.6em; }
+.fc .fc-timegrid-slot-label-cushion, .fc .fc-timegrid-axis-cushion { font-size: 11px; color: var(--faint); }
 
-@media (max-width: 600px) {
-  .fc .fc-toolbar-title { font-size: 17px; margin-left: 2px !important; }
-  .fc .fc-button { padding: 5px 10px; }
-}
+/* 요일 머리글 */
+.fc .fc-col-header-cell { border-left-color: transparent; border-right-color: transparent; }
+.fc .fc-col-header-cell-cushion { padding: 8px 0; color: var(--muted); font-weight: 500; font-size: 13px; }
+.fc .fc-col-header-cell-cushion .num { margin-left: 4px; font-size: 14px; color: var(--text); }
+.fc .fc-day-today .fc-col-header-cell-cushion .dow { color: var(--today); font-weight: 600; }
+.fc .fc-day-today .fc-col-header-cell-cushion .num { background: var(--today); color: #fff; font-weight: 700;
+  padding: 1px 6px; border-radius: 6px; }
+.fc .fc-day-sun .fc-col-header-cell-cushion .dow { color: var(--today); }
+
+/* 월 보기 날짜 숫자 */
+.fc .fc-daygrid-day-top { flex-direction: row; padding: 4px 6px 0; }
+.fc .fc-daygrid-day-number { font-size: 12.5px; color: var(--text); padding: 2px 6px; }
+.fc .fc-day-other .fc-daygrid-day-number { color: var(--faint); }
+.fc .fc-day-sun .fc-daygrid-day-number { color: var(--today); }
+.fc .fc-timegrid .fc-daygrid-day-top { display: none; }
+.fc .fc-dayGridMonth-view .fc-day-today .fc-daygrid-day-number { background: var(--today); color: #fff; font-weight: 700; border-radius: 6px; }
+.fc .fc-daygrid-more-link { font-size: 12px; color: var(--muted); }
+
+/* 현재 시각 */
+.fc .fc-timegrid-now-indicator-line { border-width: 2px 0 0; }
+.fc .fc-timegrid-now-indicator-arrow { border: none; margin-top: -9px; left: auto; right: 2px; }
+.fc .now-label { display: inline-block; background: var(--today); color: #fff; font-size: 10.5px; font-weight: 700;
+  padding: 1px 4px; border-radius: 4px; font-variant-numeric: tabular-nums; }
+
+/* 일정: 연한 배경 + 진한 왼쪽 선 + 진한 글씨 */
+.fc .fc-event { cursor: pointer; border-radius: 4px; }
+.fc .ev { --ev: #2383e2; background: color-mix(in srgb, var(--ev) 16%, var(--bg)); border: none;
+  border-left: 3px solid var(--ev); box-shadow: none; }
+.fc .ev:hover { background: color-mix(in srgb, var(--ev) 24%, var(--bg)); }
+.fc .ev .fc-event-main { color: color-mix(in srgb, var(--ev) 45%, var(--text)); padding: 2px 4px; }
+.fc .ev .fc-event-title { font-weight: 600; }
+.fc .ev .fc-event-time { font-size: 11px; opacity: 0.85; font-variant-numeric: tabular-nums; }
+.fc .ev.past { opacity: 0.55; }
+.fc .fc-daygrid-event.ev { margin-top: 2px; }
+.fc .fc-timegrid-event-harness-inset .fc-timegrid-event { box-shadow: 0 0 0 1px var(--bg); }
+.fc .fc-event-mirror { opacity: 0.8; }
 
 /* 할 일은 테두리만 있는 칸으로 일정과 구분합니다 */
-.fc .todo-item { background: var(--bg) !important; border: 1.5px solid var(--muted) !important; }
-.fc .todo-item .fc-event-main, .fc .todo-item .fc-event-title { color: var(--text) !important; font-weight: 500; }
-.fc .todo-item.done { opacity: 0.55; }
+.fc .todo-item { background: var(--bg); border: 1.5px solid var(--border-strong); }
+.fc .todo-item .fc-event-main { color: var(--text); font-weight: 500; padding: 1px 4px; }
+.fc .todo-item.done { opacity: 0.5; }
 .fc .todo-item.done .fc-event-title { text-decoration: line-through; }
-.fc .todo-item.overdue { border-color: var(--danger) !important; }
-.fc .todo-item.overdue .fc-event-title { color: var(--danger) !important; }
+.fc .todo-item.overdue { border-color: var(--danger); }
+.fc .todo-item.overdue .fc-event-main { color: var(--danger); }
 
 /* ---- 일정 추가/수정 창 ---- */
 .event-dialog { border: none; border-radius: 12px; padding: 20px; width: min(440px, calc(100vw - 32px));

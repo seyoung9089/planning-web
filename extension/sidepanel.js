@@ -1,3 +1,4 @@
+import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import '../src/shared/base.css';
 import './sidepanel.css';
 import { onAuthChange, signOut, subscribeChanges, listEventsBetween, addEvent } from '../src/shared/api.js';
