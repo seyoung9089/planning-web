@@ -1,4 +1,5 @@
 import { signIn, signUp, listTodos, addTodo, setTodoDone, deleteTodo } from './api.js';
+import { toDateKey, addDays, dueLabel } from './dates.js';
 
 // 로그인 폼: 사이트와 사이드 패널이 같이 씁니다
 export function renderAuthForm(container) {
@@ -39,15 +40,38 @@ export function renderAuthForm(container) {
   });
 }
 
-// 할 일 목록: 추가, 완료 체크, 삭제
-export function createTodoList(container) {
+// 할 일 목록: 추가(마감일 선택), 완료 체크, 삭제
+export function createTodoList(container, { onChange } = {}) {
   container.innerHTML = `
     <form class="todo-add">
       <input name="title" placeholder="할 일을 입력하고 Enter" maxlength="200" required />
+      <div class="due-row">
+        <span>마감</span>
+        <button type="button" data-due="0">오늘</button>
+        <button type="button" data-due="1">내일</button>
+        <input name="due" type="date" aria-label="마감일" />
+      </div>
     </form>
     <ul class="todos"></ul>`;
   const form = container.querySelector('form');
   const list = container.querySelector('ul');
+
+  for (const button of form.querySelectorAll('[data-due]')) {
+    button.addEventListener('click', () => {
+      const key = toDateKey(addDays(new Date(), Number(button.dataset.due)));
+      // 같은 버튼을 다시 누르면 마감일을 지웁니다
+      form.due.value = form.due.value === key ? '' : key;
+      syncDueButtons();
+    });
+  }
+  form.due.addEventListener('change', syncDueButtons);
+
+  function syncDueButtons() {
+    for (const button of form.querySelectorAll('[data-due]')) {
+      const key = toDateKey(addDays(new Date(), Number(button.dataset.due)));
+      button.classList.toggle('selected', form.due.value === key);
+    }
+  }
 
   async function refresh() {
     const todos = await listTodos();
@@ -60,22 +84,36 @@ export function createTodoList(container) {
       const li = document.createElement('li');
       li.className = todo.done ? 'done' : '';
       li.innerHTML = `
-        <label><input type="checkbox" ${todo.done ? 'checked' : ''} /> <span></span></label>
+        <label><input type="checkbox" ${todo.done ? 'checked' : ''} /> <span class="title"></span></label>
+        <span class="due"></span>
         <button class="icon" title="삭제" aria-label="삭제">×</button>`;
-      li.querySelector('span').textContent = todo.title;
-      li.querySelector('input').addEventListener('change', (e) => setTodoDone(todo.id, e.target.checked).then(refresh));
-      li.querySelector('button').addEventListener('click', () => deleteTodo(todo.id).then(refresh));
+      li.querySelector('.title').textContent = todo.title;
+      const due = dueLabel(todo.due_date);
+      if (due && !todo.done) {
+        const badge = li.querySelector('.due');
+        badge.textContent = due.text;
+        badge.classList.add(due.tone);
+      }
+      li.querySelector('input').addEventListener('change', (e) => setTodoDone(todo.id, e.target.checked).then(changed));
+      li.querySelector('button').addEventListener('click', () => deleteTodo(todo.id).then(changed));
       list.append(li);
     }
+  }
+
+  function changed() {
+    refresh();
+    onChange?.();
   }
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const title = form.title.value.trim();
     if (!title) return;
+    await addTodo(title, form.due.value || null);
     form.title.value = '';
-    await addTodo(title);
-    refresh();
+    form.due.value = '';
+    syncDueButtons();
+    changed();
   });
 
   return { refresh };

@@ -30,6 +30,7 @@ export async function listTodos() {
     .from('todos')
     .select('*')
     .order('done')
+    .order('due_date', { nullsFirst: false })
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data;
@@ -48,6 +49,11 @@ export async function setTodoDone(id, done) {
   if (error) throw error;
 }
 
+export async function setTodoDueDate(id, dueDate) {
+  const { error } = await supabase.from('todos').update({ due_date: dueDate }).eq('id', id);
+  if (error) throw error;
+}
+
 export async function deleteTodo(id) {
   const { error } = await supabase.from('todos').delete().eq('id', id);
   if (error) throw error;
@@ -60,19 +66,36 @@ export async function listEventsBetween(from, to) {
     .from('events')
     .select('*')
     .lt('start_at', to.toISOString())
-    .gte('end_at', from.toISOString())
+    .gt('end_at', from.toISOString())
     .order('start_at');
   if (error) throw error;
   return data;
 }
 
-export async function addEvent({ title, startAt, endAt, allDay = false }) {
-  const { error } = await supabase.from('events').insert({
-    title,
-    start_at: startAt.toISOString(),
-    end_at: endAt.toISOString(),
-    all_day: allDay,
-  });
+// 화면에서 쓰는 이름(startAt 등)을 데이터베이스 칸 이름(start_at 등)으로 바꿉니다
+function toEventRow({ title, startAt, endAt, allDay, color, memo }) {
+  const row = {};
+  if (title !== undefined) row.title = title;
+  if (startAt !== undefined) row.start_at = startAt.toISOString();
+  if (endAt !== undefined) row.end_at = endAt.toISOString();
+  if (allDay !== undefined) row.all_day = allDay;
+  if (color !== undefined) row.color = color;
+  if (memo !== undefined) row.memo = memo;
+  return row;
+}
+
+export async function addEvent({ title, startAt, endAt, allDay = false, color = null, memo = null }) {
+  const { error } = await supabase.from('events').insert(toEventRow({ title, startAt, endAt, allDay, color, memo }));
+  if (error) throw error;
+}
+
+export async function updateEvent(id, fields) {
+  const { error } = await supabase.from('events').update(toEventRow(fields)).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteEvent(id) {
+  const { error } = await supabase.from('events').delete().eq('id', id);
   if (error) throw error;
 }
 

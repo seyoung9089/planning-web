@@ -2,6 +2,7 @@ import './shared/base.css';
 import './styles.css';
 import { onAuthChange, signOut, subscribeChanges } from './shared/api.js';
 import { renderAuthForm, createTodoList } from './shared/ui.js';
+import { createCalendar } from './calendar.js';
 
 const app = document.getElementById('app');
 const logoutButton = document.getElementById('logout');
@@ -24,17 +25,18 @@ onAuthChange((session) => {
     return;
   }
 
-  // 2단계에서 이 자리에 월간·주간 캘린더가 들어갑니다
   app.innerHTML = `
-    <section class="calendar-placeholder">
-      <h2>캘린더</h2>
-      <p>2단계에서 구글 캘린더 스타일의 월간·주간 캘린더가 들어갈 자리입니다.</p>
-    </section>
+    <section class="calendar-panel"><div id="calendar"></div></section>
     <section class="todo-panel">
       <h2>할 일</h2>
       <div id="todo-list"></div>
     </section>`;
-  const todoList = createTodoList(document.getElementById('todo-list'));
+  // 캘린더와 할 일 목록은 서로 영향을 주므로 한쪽이 바뀌면 다른 쪽도 새로고침합니다
+  const todoList = createTodoList(document.getElementById('todo-list'), { onChange: () => calendar.refresh() });
+  const calendar = createCalendar(document.getElementById('calendar'), { onChange: () => todoList.refresh() });
   todoList.refresh();
-  unsubscribe = subscribeChanges(() => todoList.refresh());
+  unsubscribe = subscribeChanges(() => {
+    todoList.refresh();
+    calendar.refresh();
+  });
 });

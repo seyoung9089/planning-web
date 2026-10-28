@@ -18,7 +18,7 @@ body { margin: 0; background: var(--bg); color: var(--text); font-size: 15px; li
 h1, h2, h3 { margin: 0; font-weight: 600; }
 
 input, button { font: inherit; }
-input[type='text'], input[type='email'], input[type='password'], input[type='time'], input:not([type]) {
+input[type='text'], input[type='email'], input[type='password'], input[type='time'], input[type='date'], input:not([type]) {
   width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius);
   background: var(--bg); color: var(--text);
 }
@@ -44,7 +44,7 @@ button.icon:hover { color: var(--danger); }
 .todos { list-style: none; margin: 0; padding: 0; }
 .todos li { display: flex; align-items: center; justify-content: space-between;
   padding: 8px 4px; border-bottom: 1px solid var(--border); }
-.todos li label { display: flex; align-items: center; gap: 10px; flex: 1; cursor: pointer; }
+.todos li label { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer; }
 .todos li input[type='checkbox'] { width: 18px; height: 18px; accent-color: var(--primary); }
 .todos li.done span { color: var(--muted); text-decoration: line-through; }
 .todos li.empty { color: var(--muted); justify-content: center; border: none; }
@@ -52,4 +52,23 @@ button.icon:hover { color: var(--danger); }
 @media (prefers-color-scheme: dark) {
   :root { --bg: #1f1f1f; --surface: #2a2a2a; --border: #3c4043; --text: #e8eaed; --muted: #9aa0a6;
     --primary: #8ab4f8; --primary-text: #202124; --danger: #f28b82; color-scheme: dark; }
+}
+
+/* ---- 할 일 마감일 ---- */
+.todo-add { display: grid; gap: 6px; }
+.due-row { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.due-row button { padding: 3px 10px; font-size: 13px; border-radius: 999px; }
+.due-row button.selected { background: var(--primary); color: var(--primary-text); border-color: var(--primary); }
+.due-row input[type='date'] { flex: 1; min-width: 0; padding: 3px 6px; font-size: 13px; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--bg); color: var(--text); font-family: inherit; }
+.todos .due { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.todos .due:empty { display: none; }
+.todos .due.overdue { background: #fce8e6; color: #c5221f; }
+.todos .due.today { background: #fef7e0; color: #b06000; }
+.todos .due.soon { background: #e8f0fe; color: #1967d2; }
+.todos .due.later { background: var(--surface); color: var(--muted); }
+@media (prefers-color-scheme: dark) {
+  .todos .due.overdue { background: #5c2b29; color: #f28b82; }
+  .todos .due.today { background: #4a3c12; color: #fdd663; }
+  .todos .due.soon { background: #1e3a5f; color: #8ab4f8; }
 }
