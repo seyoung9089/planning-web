@@ -93,28 +93,43 @@ button.icon:hover { color: var(--danger); }
 
 /* ---- 교시 고르는 패널 ---- */
 .period-picker { position: fixed; border: 1px solid var(--border); border-radius: 12px; padding: 14px;
-  width: 360px; max-width: calc(100vw - 16px); background: var(--bg); color: var(--text);
-  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.22); }
+  width: 340px; max-width: calc(100vw - 16px); max-height: calc(100vh - 24px); overflow-y: auto;
+  background: var(--bg); color: var(--text); box-shadow: 0 10px 32px rgba(0, 0, 0, 0.22); }
 .period-picker::backdrop { background: rgba(0, 0, 0, 0.12); }
-.period-picker.sheet { width: 100%; max-width: 100%; bottom: 0; border-radius: 14px 14px 0 0; }
+.period-picker.sheet { width: 100%; max-width: 100%; bottom: 0; max-height: 92vh; border-radius: 14px 14px 0 0; }
 .period-picker form { display: grid; gap: 10px; }
 .period-picker .todo-title { margin: 0; font-weight: 700; font-size: 15px; }
-.period-picker .days { display: flex; flex-wrap: wrap; gap: 6px; }
-.period-picker .days button { padding: 4px 10px; font-size: 13px; border-radius: 999px; }
-.period-picker .days small { color: var(--muted); }
-.period-picker .days input { width: auto; flex: 1; min-width: 120px; padding: 3px 8px; font-size: 13px; border-radius: 999px; }
-.period-picker .days .selected { background: var(--primary); color: var(--primary-text); border-color: var(--primary); }
-.period-picker .days button.selected small { color: inherit; opacity: 0.85; }
-.period-picker .groups { display: grid; gap: 6px; }
-.period-picker .group { display: grid; grid-template-columns: 34px 1fr; align-items: start; gap: 6px; }
-.period-picker .group-name { font-size: 11px; color: var(--muted); padding-top: 9px; }
-.period-picker .periods { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
-.period-picker .period { display: grid; padding: 5px 2px; border-radius: 8px; line-height: 1.2; font-size: 13px; }
-.period-picker .period small { font-size: 10.5px; color: var(--faint); }
-.period-picker .period.selected { background: var(--primary); color: var(--primary-text); border-color: var(--primary); }
-.period-picker .period.selected small { color: inherit; opacity: 0.85; }
+
+/* 맨 위 요일 줄 */
+.period-picker .week { display: flex; align-items: center; gap: 2px; }
+.period-picker .week .icon-btn { border: none; background: none; padding: 4px 4px; font-size: 18px; color: var(--muted); }
+.period-picker .days { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.period-picker .days button { display: grid; padding: 4px 0; border-radius: 8px; line-height: 1.25; font-size: 13px; }
+.period-picker .days small { font-size: 10.5px; color: var(--muted); }
+.period-picker .days .sun b { color: var(--today); }
+.period-picker .days .sat b { color: var(--primary); }
+.period-picker .days .selected { background: var(--text); border-color: var(--text); }
+.period-picker .days .selected b, .period-picker .days .selected small { color: var(--bg); }
+
+.period-picker .all-day { margin: 0; font-size: 12px; color: var(--muted); background: var(--surface); padding: 4px 8px; border-radius: 6px; }
+
+/* 하루 교시 목록 */
+.period-picker .rows { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.period-picker .rows.loading { opacity: 0.4; }
+.period-picker .rows li + li { border-top: 1px solid var(--border); }
+.period-picker .row { display: grid; grid-template-columns: 76px 44px 1fr; align-items: center; width: 100%;
+  padding: 7px 10px; border: none; border-radius: 0; background: var(--bg); text-align: left; font-size: 14px; }
+.period-picker .row:hover:not(:disabled) { background: color-mix(in srgb, var(--primary) 8%, var(--bg)); }
+.period-picker .row .name { font-weight: 600; }
+.period-picker .row .time { font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.period-picker .row .what { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.period-picker .row:disabled { background: var(--surface); cursor: not-allowed; }
+.period-picker .row:disabled .name, .period-picker .row:disabled .time { color: var(--faint); font-weight: 500; }
+.period-picker .row.selected, .period-picker .row.selected:hover:not(:disabled) { background: var(--primary); }
+.period-picker .row.selected .name, .period-picker .row.selected .time, .period-picker .row.selected .what { color: var(--primary-text); }
+
 .period-picker .hint { margin: 0; font-size: 11.5px; color: var(--faint); }
 .period-picker .actions { display: flex; gap: 6px; }
 .period-picker .actions .spacer { flex: 1; }
 .period-picker .actions button { padding: 6px 14px; font-size: 14px; }
-.period-picker .danger { color: var(--danger); }
+.period-picker .danger { color: var(--danger); border-color: transparent; background: none; }
