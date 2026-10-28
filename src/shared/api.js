@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js';
+import { TIMETABLE_MEMO } from './timetable.js';
 
 // ---- 로그인 ----
 
@@ -106,6 +107,12 @@ export async function addEvent({ title, startAt, endAt, allDay = false, color = 
 
 export async function updateEvent(id, fields) {
   const { error } = await supabase.from('events').update(toEventRow(fields)).eq('id', id);
+  if (error) throw error;
+}
+
+// 같은 이름의 수업 시간표 전체(모든 주)의 색을 한 번에 바꿉니다
+export async function setTimetableColor(title, color) {
+  const { error } = await supabase.from('events').update({ color }).eq('memo', TIMETABLE_MEMO).eq('title', title);
   if (error) throw error;
 }
 
