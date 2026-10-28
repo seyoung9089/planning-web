@@ -1,0 +1,178 @@
+import { Calendar } from '@fullcalendar/core';
+import koLocale from '@fullcalendar/core/locales/ko';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import interactionPlugin from '@fullcalendar/interaction';
+import { listEventsBetween, listTodos, updateEvent, setTodoDone, setTodoDueDate } from './shared/api.js';
+import { toDateKey, toTimeKey, addDays } from './shared/dates.js';
+import { openNewEvent, openEditEvent } from './eventDialog.js';
+import { DEFAULT_COLOR } from './colors.js';
+
+const VIEW_KEY = 'planning-web:view';
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+function savedView() {
+  try {
+    return localStorage.getItem(VIEW_KEY);
+  } catch {
+    return null;
+  }
+}
+
+// 일정(events 테이블)을 캘린더가 이해하는 모양으로 바꿉니다
+function eventToCalendar(row) {
+  const past = new Date(row.end_at) < new Date();
+  return {
+    id: row.id,
+    title: row.title,
+    start: row.start_at,
+    end: row.end_at,
+    allDay: row.all_day,
+    classNames: ['ev', past ? 'past' : ''],
+    extendedProps: { kind: 'event', row, color: row.color || DEFAULT_COLOR },
+  };
+}
+
+// 마감일이 있는 할 일은 그날 칸에 체크 표시와 함께 보여 줍니다
+function todoToCalendar(row) {
+  const overdue = !row.done && row.due_date < toDateKey(new Date());
+  return {
+    id: 'todo-' + row.id,
+    title: (row.done ? '✓ ' : '○ ') + row.title,
+    start: row.due_date,
+    allDay: true,
+    classNames: ['todo-item', row.done ? 'done' : '', overdue ? 'overdue' : ''],
+    durationEditable: false,
+    extendedProps: { kind: 'todo', row },
+  };
+}
+
+// 제목: 월 보기는 "2026년 10월", 주 보기는 "2026년 10월" 또는 "2026년 10월 – 11월", 일 보기는 "10월 28일 (수)"
+function titleFor(view) {
+  const start = view.currentStart;
+  const last = addDays(view.currentEnd, -1);
+  if (view.type === 'timeGridDay') {
+    return `${start.getMonth() + 1}월 ${start.getDate()}일 (${WEEKDAYS[start.getDay()]})`;
+  }
+  if (view.type === 'timeGridWeek' && last.getMonth() !== start.getMonth()) {
+    return `${start.getFullYear()}년 ${start.getMonth() + 1}월 – ${last.getMonth() + 1}월`;
+  }
+  return `${start.getFullYear()}년 ${start.getMonth() + 1}월`;
+}
+
+export function createCalendar(container, { onChange, onDatesSet } = {}) {
+  const changed = () => {
+    calendar.refetchEvents();
+    onChange?.();
+  };
+
+  const calendar = new Calendar(container, {
+    plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
+    locale: koLocale,
+    initialView: savedView() || (window.innerWidth < 700 ? 'timeGridDay' : 'timeGridWeek'),
+    headerToolbar: false,
+    height: '100%',
+    nowIndicator: true,
+    scrollTime: '07:00:00',
+    dayMaxEvents: true,
+    eventDisplay: 'block',
+    selectable: true,
+    selectMirror: true,
+    editable: true,
+    allDayText: '종일',
+    slotLabelFormat: { hour: 'numeric', hour12: true },
+    eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+
+    // 요일 머리글: "수 28"처럼 쓰고, 오늘은 빨간 배지로 표시합니다
+    dayHeaderContent: (arg) => {
+      const dow = WEEKDAYS[arg.date.getDay()];
+      if (arg.view.type === 'dayGridMonth') return dow;
+      return { html: `<span class="dow">${dow}</span><span class="num">${arg.date.getDate()}</span>` };
+    },
+    dayCellContent: (arg) => (arg.view.type === 'dayGridMonth' ? String(arg.date.getDate()) : ''),
+
+    // 현재 시각 선 왼쪽에 "14:07" 같은 시간 표시
+    nowIndicatorContent: (arg) => (arg.isAxis ? { html: `<span class="now-label">${toTimeKey(arg.date)}</span>` } : null),
+
+    events: async (info, success, failure) => {
+      try {
+        const [events, todos] = await Promise.all([listEventsBetween(info.start, info.end), listTodos()]);
+        const from = toDateKey(info.start);
+        const to = toDateKey(info.end);
+        const visibleTodos = todos.filter((t) => t.due_date && t.due_date >= from && t.due_date < to);
+        success([...events.map(eventToCalendar), ...visibleTodos.map(todoToCalendar)]);
+      } catch (err) {
+        failure(err);
+      }
+    },
+
+    // 일정 색은 CSS 변수로 넘겨서 "연한 배경 + 진한 왼쪽 선"으로 그립니다
+    eventDidMount: (info) => {
+      const color = info.event.extendedProps.color;
+      if (color) info.el.style.setProperty('--ev', color);
+    },
+
+    // 빈 칸을 누르거나 끌어서 범위를 고르면 새 일정 창을 엽니다
+    select: (info) => {
+      calendar.unselect();
+      openNewEvent({ start: info.start, end: info.end, allDay: info.allDay }, changed);
+    },
+
+    // 일정을 누르면 수정 창, 할 일을 누르면 완료/미완료가 바뀝니다
+    eventClick: async (info) => {
+      const { kind, row } = info.event.extendedProps;
+      if (kind === 'todo') {
+        await setTodoDone(row.id, !row.done);
+        changed();
+      } else {
+        openEditEvent(row, changed);
+      }
+    },
+
+    // 끌어서 옮기거나 길이를 바꾸면 바로 저장합니다
+    eventDrop: (info) => saveMoved(info),
+    eventResize: (info) => saveMoved(info),
+
+    datesSet: (info) => {
+      try {
+        localStorage.setItem(VIEW_KEY, info.view.type);
+      } catch {
+        // 저장이 안 되는 환경이면 다음에 기본 보기로 열립니다
+      }
+      onDatesSet?.({
+        title: titleFor(info.view),
+        viewType: info.view.type,
+        start: info.view.currentStart,
+        end: info.view.currentEnd,
+      });
+    },
+  });
+
+  async function saveMoved(info) {
+    const ev = info.event;
+    const { kind, row } = ev.extendedProps;
+    try {
+      if (kind === 'todo') {
+        await setTodoDueDate(row.id, toDateKey(ev.start));
+      } else {
+        // 끝 시간이 비어 있으면 하루 종일은 1일, 시간 일정은 1시간으로 봅니다
+        const end = ev.end ?? (ev.allDay ? addDays(ev.start, 1) : new Date(ev.start.getTime() + 3600000));
+        await updateEvent(row.id, { startAt: ev.start, endAt: end, allDay: ev.allDay });
+      }
+      changed();
+    } catch (err) {
+      info.revert();
+      alert('저장하지 못했습니다: ' + err.message);
+    }
+  }
+
+  calendar.render();
+  return {
+    refresh: () => calendar.refetchEvents(),
+    gotoDate: (date) => calendar.gotoDate(date),
+    changeView: (type) => calendar.changeView(type),
+    today: () => calendar.today(),
+    prev: () => calendar.prev(),
+    next: () => calendar.next(),
+  };
+}

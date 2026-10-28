@@ -1,3 +1,4 @@
+import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import '../src/shared/base.css';
 import './sidepanel.css';
 import { onAuthChange, signOut, subscribeChanges, listEventsBetween, addEvent } from '../src/shared/api.js';
@@ -40,6 +41,7 @@ async function refreshEvents(list) {
   for (const ev of events) {
     const li = document.createElement('li');
     if (new Date(ev.end_at).getTime() < now) li.className = 'past';
+    if (ev.color) li.style.borderLeftColor = ev.color;
     li.innerHTML = '<span class="time"></span><span class="title"></span>';
     li.querySelector('.time').textContent = ev.all_day ? '하루 종일' : `${formatTime(ev.start_at)}–${formatTime(ev.end_at)}`;
     li.querySelector('.title').textContent = ev.title;
