@@ -3,26 +3,30 @@ import { fromKeys, toTimeKey } from './dates.js';
 // 우리 학교 하루 시간표. 할 일을 "몇 교시에 할지" 고를 때 씁니다.
 // 시간표가 바뀌면 이 목록만 고치면 됩니다.
 export const PERIODS = [
-  { id: 'am1', label: '아침활동', start: '07:00', end: '07:30', group: '아침' },
-  { id: 'am2', label: '아침식사', start: '07:30', end: '08:30', group: '아침' },
-  { id: 'am3', label: '아침묵상', start: '08:30', end: '09:00', group: '아침' },
-  { id: 'p1', label: '1교시', start: '09:05', end: '09:50', group: '오전' },
-  { id: 'p2', label: '2교시', start: '09:50', end: '10:35', group: '오전' },
-  { id: 'p3', label: '3교시', start: '10:40', end: '11:25', group: '오전' },
-  { id: 'p4', label: '4교시', start: '11:25', end: '12:10', group: '오전' },
-  { id: 'lunch', label: '점심', start: '12:10', end: '13:10', group: '점심' },
-  { id: 'p5', label: '5교시', start: '13:10', end: '13:55', group: '오후' },
-  { id: 'p6', label: '6교시', start: '14:00', end: '14:45', group: '오후' },
-  { id: 'p7', label: '7교시', start: '14:50', end: '15:35', group: '오후' },
-  { id: 'p8', label: '8교시', start: '15:40', end: '16:25', group: '오후' },
-  { id: 'p9', label: '9교시', start: '16:30', end: '17:15', group: '오후', note: '방과후 1' },
-  { id: 'p10', label: '10교시', start: '17:20', end: '18:05', group: '오후', note: '방과후 2' },
-  { id: 'dinner', label: '저녁식사', start: '18:05', end: '18:55', group: '저녁' },
-  { id: 'ev1', label: '저녁활동 1', start: '19:00', end: '20:00', group: '저녁' },
-  { id: 'ev2', label: '저녁활동 2', start: '20:00', end: '21:00', group: '저녁' },
+  { id: 'p1', label: '1교시', start: '09:05', end: '09:50' },
+  { id: 'p2', label: '2교시', start: '09:50', end: '10:35' },
+  { id: 'p3', label: '3교시', start: '10:40', end: '11:25' },
+  { id: 'p4', label: '4교시', start: '11:25', end: '12:10' },
+  { id: 'lunch', label: '점심', start: '12:10', end: '13:10' },
+  { id: 'p5', label: '5교시', start: '13:10', end: '13:55' },
+  { id: 'p6', label: '6교시', start: '14:00', end: '14:45' },
+  { id: 'p7', label: '7교시', start: '14:50', end: '15:35' },
+  { id: 'p8', label: '8교시', start: '15:40', end: '16:25' },
+  { id: 'p9', label: '9교시', start: '16:30', end: '17:15', note: '방과후 1' },
+  { id: 'p10', label: '10교시', start: '17:20', end: '18:05', note: '방과후 2' },
+  { id: 'ev1', label: '저녁활동 1', start: '19:00', end: '20:00' },
+  { id: 'ev2', label: '저녁활동 2', start: '20:00', end: '21:00' },
 ];
 
-export const PERIOD_GROUPS = ['아침', '오전', '점심', '오후', '저녁'];
+// 그날 각 교시에 이미 무엇이 있는지 계산합니다.
+// items: [{ title, start, end }] (Date), 돌려주는 값: 교시마다 겹치는 일정 이름 목록
+export function busyByPeriod(dateKey, items) {
+  return PERIODS.map((p) => {
+    const start = fromKeys(dateKey, p.start);
+    const end = fromKeys(dateKey, p.end);
+    return items.filter((it) => it.start < end && it.end > start).map((it) => it.title);
+  });
+}
 
 // 날짜(YYYY-MM-DD) + 교시 범위(첫 교시~마지막 교시) → 실제 시작·끝 시각
 export function periodRange(dateKey, firstIndex, lastIndex) {
