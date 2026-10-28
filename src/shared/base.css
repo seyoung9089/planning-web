@@ -79,3 +79,42 @@ button.icon:hover { color: var(--danger); }
   .todos .due.today { background: #4a3c12; color: #fdd663; }
   .todos .due.soon { background: #1e3a5f; color: #8ab4f8; }
 }
+
+/* ---- 할 일 아래 줄: 언제 할지(교시) 버튼 + 마감 배지 ---- */
+.todos li { flex-wrap: wrap; row-gap: 2px; }
+.todos li .meta { width: 100%; display: flex; align-items: center; gap: 6px; padding-left: 28px; }
+.todos li .when { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; font-size: 12px;
+  border: 1px solid transparent; border-radius: 6px; background: none; color: var(--faint); }
+.todos li .when:hover { border-color: var(--border-strong); color: var(--text); }
+.todos li .when.set { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 35%, transparent);
+  background: color-mix(in srgb, var(--primary) 8%, var(--bg)); font-weight: 600; }
+.todos li:not(:hover) .when:not(.set) span { display: none; }
+.todos li.done .when.set { opacity: 0.6; }
+
+/* ---- 교시 고르는 패널 ---- */
+.period-picker { position: fixed; border: 1px solid var(--border); border-radius: 12px; padding: 14px;
+  width: 360px; max-width: calc(100vw - 16px); background: var(--bg); color: var(--text);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.22); }
+.period-picker::backdrop { background: rgba(0, 0, 0, 0.12); }
+.period-picker.sheet { width: 100%; max-width: 100%; bottom: 0; border-radius: 14px 14px 0 0; }
+.period-picker form { display: grid; gap: 10px; }
+.period-picker .todo-title { margin: 0; font-weight: 700; font-size: 15px; }
+.period-picker .days { display: flex; flex-wrap: wrap; gap: 6px; }
+.period-picker .days button { padding: 4px 10px; font-size: 13px; border-radius: 999px; }
+.period-picker .days small { color: var(--muted); }
+.period-picker .days input { width: auto; flex: 1; min-width: 120px; padding: 3px 8px; font-size: 13px; border-radius: 999px; }
+.period-picker .days .selected { background: var(--primary); color: var(--primary-text); border-color: var(--primary); }
+.period-picker .days button.selected small { color: inherit; opacity: 0.85; }
+.period-picker .groups { display: grid; gap: 6px; }
+.period-picker .group { display: grid; grid-template-columns: 34px 1fr; align-items: start; gap: 6px; }
+.period-picker .group-name { font-size: 11px; color: var(--muted); padding-top: 9px; }
+.period-picker .periods { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.period-picker .period { display: grid; padding: 5px 2px; border-radius: 8px; line-height: 1.2; font-size: 13px; }
+.period-picker .period small { font-size: 10.5px; color: var(--faint); }
+.period-picker .period.selected { background: var(--primary); color: var(--primary-text); border-color: var(--primary); }
+.period-picker .period.selected small { color: inherit; opacity: 0.85; }
+.period-picker .hint { margin: 0; font-size: 11.5px; color: var(--faint); }
+.period-picker .actions { display: flex; gap: 6px; }
+.period-picker .actions .spacer { flex: 1; }
+.period-picker .actions button { padding: 6px 14px; font-size: 14px; }
+.period-picker .danger { color: var(--danger); }

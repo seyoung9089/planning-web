@@ -1,5 +1,23 @@
 import { signIn, signUp, listTodos, addTodo, setTodoDone, deleteTodo } from './api.js';
 import { toDateKey, addDays, dueLabel } from './dates.js';
+import { periodLabel } from './timetable.js';
+import { openPeriodPicker } from './schedulePicker.js';
+
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+// "오늘 7교시", "내일 7–8교시", "11/3(화) 점심"
+function scheduleText(todo) {
+  const start = new Date(todo.scheduled_start);
+  const key = toDateKey(start);
+  let day = `${start.getMonth() + 1}/${start.getDate()}(${WEEKDAYS[start.getDay()]})`;
+  if (key === toDateKey(new Date())) day = '오늘';
+  else if (key === toDateKey(addDays(new Date(), 1))) day = '내일';
+  return `${day} ${periodLabel(start, new Date(todo.scheduled_end))}`;
+}
+
+// 시계 모양의 선 아이콘
+const CLOCK_ICON =
+  '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.5V8l2.5 1.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
 
 // 로그인 폼: 사이트와 사이드 패널이 같이 씁니다
 export function renderAuthForm(container) {
@@ -85,8 +103,11 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
       li.className = todo.done ? 'done' : '';
       li.innerHTML = `
         <label><input type="checkbox" ${todo.done ? 'checked' : ''} /> <span class="title"></span></label>
-        <span class="due"></span>
-        <button class="icon" title="삭제" aria-label="삭제">×</button>`;
+        <button class="icon" title="삭제" aria-label="삭제">×</button>
+        <div class="meta">
+          <button type="button" class="when" title="몇 교시에 할지 정하기">${CLOCK_ICON}<span>교시 정하기</span></button>
+          <span class="due"></span>
+        </div>`;
       li.querySelector('.title').textContent = todo.title;
       const due = dueLabel(todo.due_date);
       if (due && !todo.done) {
@@ -94,8 +115,15 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
         badge.textContent = due.text;
         badge.classList.add(due.tone);
       }
+      const when = li.querySelector('.when');
+      if (todo.scheduled_start) {
+        when.classList.add('set');
+        when.querySelector('span').textContent = scheduleText(todo);
+      }
+      if (todo.done) when.hidden = !todo.scheduled_start;
+      when.addEventListener('click', () => openPeriodPicker(todo, when, changed));
       li.querySelector('input').addEventListener('change', (e) => setTodoDone(todo.id, e.target.checked).then(changed));
-      li.querySelector('button').addEventListener('click', () => deleteTodo(todo.id).then(changed));
+      li.querySelector('button.icon').addEventListener('click', () => deleteTodo(todo.id).then(changed));
       list.append(li);
     }
   }

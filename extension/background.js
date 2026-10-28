@@ -65,8 +65,20 @@ async function syncReminders() {
         chrome.alarms.create(name, { when });
       }
 
+      const todos = await listTodos();
+      // 몇 교시에 하기로 정한 할 일도 시작 10분 전에 알려 줍니다
+      for (const t of todos) {
+        if (t.done || !t.scheduled_start) continue;
+        const start = new Date(t.scheduled_start);
+        const when = start.getTime() - REMIND_BEFORE_MIN * 60000;
+        if (when <= Date.now() || start.getTime() > now.getTime() + 24 * 3600000) continue;
+        const name = 'todo:' + t.id;
+        reminders[name] = { title: `${REMIND_BEFORE_MIN}분 뒤 할 일: ${t.title}`, message: `${hm(start)} – ${hm(new Date(t.scheduled_end))}` };
+        chrome.alarms.create(name, { when });
+      }
+
       const todayKey = toDateKey(now);
-      const dueToday = (await listTodos()).filter((t) => !t.done && t.due_date === todayKey);
+      const dueToday = todos.filter((t) => !t.done && t.due_date === todayKey);
       const dueAt = new Date(now);
       dueAt.setHours(DUE_REMINDER_HOUR, 0, 0, 0);
       if (dueToday.length > 0 && dueAt > now) {
