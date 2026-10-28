@@ -53,6 +53,15 @@ onAuthChange((session) => {
             <button data-view="timeGridDay">일</button>
           </div>
           <button id="full-day" class="ghost-toggle" aria-pressed="false" title="0시~24시 전체 보기">전체 시간</button>
+          <label class="snap-select" title="끌어서 일정을 잡을 때 맞춰지는 시간 단위">
+            <span>드래그 단위</span>
+            <select id="snap">
+              <option value="5">5분</option>
+              <option value="10">10분</option>
+              <option value="30">30분</option>
+              <option value="60">1시간</option>
+            </select>
+          </label>
           <button data-nav="today">오늘</button>
           <button data-nav="prev" class="icon-btn" aria-label="이전">‹</button>
           <button data-nav="next" class="icon-btn" aria-label="다음">›</button>
@@ -67,6 +76,7 @@ onAuthChange((session) => {
   const title = document.getElementById('cal-title');
   const viewButtons = app.querySelectorAll('[data-view]');
   const fullDayButton = document.getElementById('full-day');
+  const snapSelect = document.getElementById('snap');
 
   // 캘린더·미니 달력·할 일 목록은 서로 영향을 주므로 한쪽이 바뀌면 다른 쪽도 새로고침합니다
   const todoList = createTodoList(document.getElementById('todo-list'), { onChange: () => calendar.refresh() });
@@ -80,6 +90,7 @@ onAuthChange((session) => {
       for (const b of viewButtons) b.classList.toggle('active', b.dataset.view === viewType);
       mini.highlight(start, end, viewType !== 'dayGridMonth');
       fullDayButton.hidden = viewType === 'dayGridMonth'; // 월 보기에는 시간 칸이 없습니다
+      snapSelect.parentElement.hidden = viewType === 'dayGridMonth';
     },
   });
 
@@ -90,6 +101,8 @@ onAuthChange((session) => {
   };
   syncFullDay(calendar.isFullDay());
   fullDayButton.addEventListener('click', () => syncFullDay(calendar.toggleFullDay()));
+  snapSelect.value = String(calendar.getSnap());
+  snapSelect.addEventListener('change', () => calendar.setSnap(Number(snapSelect.value)));
   app.querySelector('[data-nav="today"]').addEventListener('click', () => calendar.today());
   app.querySelector('[data-nav="prev"]').addEventListener('click', () => calendar.prev());
   app.querySelector('[data-nav="next"]').addEventListener('click', () => calendar.next());

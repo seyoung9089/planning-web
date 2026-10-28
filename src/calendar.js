@@ -11,6 +11,8 @@ import { isTimetable } from './shared/timetable.js';
 
 const VIEW_KEY = 'planning-web:view';
 const FULL_DAY_KEY = 'planning-web:full-day';
+const SNAP_KEY = 'planning-web:snap-minutes';
+export const SNAP_CHOICES = [5, 10, 30, 60];
 // 평소에는 학교 일과 시간(아침 8:30 ~ 밤 10:00)만 보여 줍니다. 저녁 9시 줄에도 시간 글자가 붙도록 10시까지 둡니다
 const SCHOOL_HOURS = { slotMinTime: '08:30:00', slotMaxTime: '22:00:00', scrollTime: '08:30:00' };
 const FULL_DAY = { slotMinTime: '00:00:00', slotMaxTime: '24:00:00', scrollTime: '08:00:00' };
@@ -22,6 +24,63 @@ function savedFullDay() {
   } catch {
     return false;
   }
+}
+
+// 끌어서 시간을 잡을 때 몇 분 단위로 맞출지 (기본 30분)
+function savedSnap() {
+  try {
+    const minutes = Number(localStorage.getItem(SNAP_KEY));
+    return SNAP_CHOICES.includes(minutes) ? minutes : 30;
+  } catch {
+    return 30;
+  }
+}
+
+// 1시간 단위일 때 8:30부터 시작하면 8:30, 9:30…으로 맞춰지므로 8:00부터 보여 줍니다
+function hoursFor(fullDay, snapMinutes) {
+  if (fullDay) return FULL_DAY;
+  return snapMinutes === 60 ? { ...SCHOOL_HOURS, slotMinTime: '08:00:00' } : SCHOOL_HOURS;
+}
+
+const pad = (n) => String(n).padStart(2, '0');
+const minutesToDuration = (minutes) => `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}:00`;
+
+// 시간 칸 위에 마우스를 올리면, 지금 누르면 시작될 시간을 마우스 옆에 "오후 1:05"처럼 보여 줍니다
+function attachHoverTime(container, getSnap) {
+  const tip = document.createElement('div');
+  tip.className = 'hover-time';
+  tip.hidden = true;
+  document.body.append(tip);
+
+  container.addEventListener('mousemove', (e) => {
+    // 시간 칸 안쪽만 (일정 위나 왼쪽 시간 글자 위는 제외)
+    const inGrid = e.target.closest('.fc-timegrid-body');
+    if (!inGrid || e.target.closest('.fc-event, .fc-timegrid-slot-label, .fc-timegrid-axis')) {
+      tip.hidden = true;
+      return;
+    }
+    let minutes = null;
+    for (const lane of container.querySelectorAll('.fc-timegrid-slot-lane[data-time]')) {
+      const rect = lane.getBoundingClientRect();
+      if (e.clientY < rect.top || e.clientY >= rect.bottom) continue;
+      const [h, m] = lane.dataset.time.split(':').map(Number);
+      // 시간 칸 한 줄은 30분입니다
+      minutes = h * 60 + m + ((e.clientY - rect.top) / rect.height) * 30;
+      break;
+    }
+    if (minutes === null) {
+      tip.hidden = true;
+      return;
+    }
+    const snap = getSnap();
+    const snapped = Math.floor(minutes / snap) * snap;
+    const h = Math.floor(snapped / 60) % 24;
+    tip.textContent = `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${pad(snapped % 60)}`;
+    tip.style.left = e.clientX + 14 + 'px';
+    tip.style.top = e.clientY - 30 + 'px';
+    tip.hidden = false;
+  });
+  container.addEventListener('mouseleave', () => (tip.hidden = true));
 }
 
 function savedView() {
@@ -90,6 +149,7 @@ export function createCalendar(container, { onChange, onDatesSet } = {}) {
   };
 
   let fullDay = savedFullDay();
+  let snapMinutes = savedSnap();
   let shownAsMonth = savedView() === 'dayGridMonth';
   const calendar = new Calendar(container, {
     plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
@@ -98,7 +158,8 @@ export function createCalendar(container, { onChange, onDatesSet } = {}) {
     headerToolbar: false,
     height: '100%',
     nowIndicator: true,
-    ...(fullDay ? FULL_DAY : SCHOOL_HOURS),
+    ...hoursFor(fullDay, snapMinutes),
+    snapDuration: minutesToDuration(snapMinutes),
     dayMaxEvents: true,
     eventDisplay: 'block',
     selectable: true,
@@ -209,6 +270,7 @@ export function createCalendar(container, { onChange, onDatesSet } = {}) {
   }
 
   calendar.render();
+  attachHoverTime(container, () => snapMinutes);
   return {
     refresh: () => calendar.refetchEvents(),
     gotoDate: (date) => calendar.gotoDate(date),
@@ -222,11 +284,25 @@ export function createCalendar(container, { onChange, onDatesSet } = {}) {
       } catch {
         // 저장이 안 되면 이번에만 적용됩니다
       }
-      for (const [key, value] of Object.entries(fullDay ? FULL_DAY : SCHOOL_HOURS)) calendar.setOption(key, value);
-      calendar.scrollToTime(fullDay ? FULL_DAY.scrollTime : SCHOOL_HOURS.scrollTime);
+      const hours = hoursFor(fullDay, snapMinutes);
+      for (const [key, value] of Object.entries(hours)) calendar.setOption(key, value);
+      calendar.scrollToTime(hours.scrollTime);
       return fullDay;
     },
     isFullDay: () => fullDay,
+    // 끌기 단위(분) 바꾸기: 5, 10, 30, 60
+    setSnap: (minutes) => {
+      if (!SNAP_CHOICES.includes(minutes)) return;
+      snapMinutes = minutes;
+      try {
+        localStorage.setItem(SNAP_KEY, String(minutes));
+      } catch {
+        // 저장이 안 되면 이번에만 적용됩니다
+      }
+      calendar.setOption('snapDuration', minutesToDuration(minutes));
+      calendar.setOption('slotMinTime', hoursFor(fullDay, minutes).slotMinTime);
+    },
+    getSnap: () => snapMinutes,
     prev: () => calendar.prev(),
     next: () => calendar.next(),
   };

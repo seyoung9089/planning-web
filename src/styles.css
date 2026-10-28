@@ -51,6 +51,16 @@ button.icon-btn:hover { background: var(--hover); color: var(--text); }
 .cal-controls > button.ghost-toggle { border-color: transparent; background: none; color: var(--muted); }
 .cal-controls > button.ghost-toggle:hover { background: var(--hover); color: var(--text); }
 .cal-controls > button.ghost-toggle.active { background: var(--surface); color: var(--text); font-weight: 600; }
+.snap-select { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.snap-select[hidden] { display: none; }
+.snap-select select { font: inherit; font-size: 14px; color: var(--text); background: var(--bg);
+  border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 4px 6px; cursor: pointer; }
+
+/* 시간 칸 위 마우스 옆에 뜨는 "오후 1:05" */
+.hover-time { position: fixed; z-index: 50; pointer-events: none; padding: 2px 7px; border-radius: 4px;
+  background: var(--text); color: var(--bg); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); white-space: nowrap; }
+.hover-time[hidden] { display: none; }
 
 @media (max-width: 860px) {
   .shell { grid-template-columns: 1fr; height: auto; }
@@ -143,6 +153,7 @@ button.icon-btn:hover { background: var(--hover); color: var(--text); }
 .event-dialog .when .dash { display: none; }
 .event-dialog .when input { padding: 8px; }
 .event-dialog .when input[hidden] { display: none; }
+.event-dialog .when input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger); }
 .event-dialog .colors { display: flex; gap: 8px; }
 .event-dialog .colors label { position: relative; }
 .event-dialog .colors input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }

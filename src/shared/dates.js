@@ -16,6 +16,34 @@ export function fromKeys(dateKey, timeKey = '00:00') {
   return new Date(y, m - 1, d, h, min);
 }
 
+// 사람이 쓴 시간을 'HH:MM'으로 바꿉니다. 못 알아보면 null
+// 받는 모양: 13:05, 1:05, 1305, 905, 13, 13시, 13시 5분, 오후 1:05, 오전 9시 30분
+export function parseTime(text) {
+  let s = String(text ?? '').trim().replace(/\s+/g, ' ');
+  if (!s) return null;
+  let half = null;
+  const prefix = s.match(/^(오전|오후)\s?/);
+  if (prefix) {
+    half = prefix[1];
+    s = s.slice(prefix[0].length);
+  }
+  let m =
+    s.match(/^(\d{1,2})\s?[:시]\s?(\d{1,2})\s?분?$/) ||
+    s.match(/^(\d{1,2})()\s?시?$/) ||
+    s.match(/^(\d{1,2})(\d{2})$/);
+  if (!m) return null;
+  let h = Number(m[1]);
+  const min = m[2] === '' ? 0 : Number(m[2]);
+  if (min > 59) return null;
+  if (half) {
+    if (h < 1 || h > 12) return null;
+    h = (h % 12) + (half === '오후' ? 12 : 0);
+  }
+  if (h > 23) return null;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(h)}:${pad(min)}`;
+}
+
 export function addDays(date, days) {
   const d = new Date(date);
   d.setDate(d.getDate() + days);
