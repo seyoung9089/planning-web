@@ -10,8 +10,8 @@ import { DEFAULT_COLOR } from './colors.js';
 
 const VIEW_KEY = 'planning-web:view';
 const FULL_DAY_KEY = 'planning-web:full-day';
-// 평소에는 학교 일과 시간(아침 8:30 ~ 저녁 9:00)만 보여 줍니다
-const SCHOOL_HOURS = { slotMinTime: '08:30:00', slotMaxTime: '21:00:00', scrollTime: '08:30:00' };
+// 평소에는 학교 일과 시간(아침 8:30 ~ 밤 10:00)만 보여 줍니다. 저녁 9시 줄에도 시간 글자가 붙도록 10시까지 둡니다
+const SCHOOL_HOURS = { slotMinTime: '08:30:00', slotMaxTime: '22:00:00', scrollTime: '08:30:00' };
 const FULL_DAY = { slotMinTime: '00:00:00', slotMaxTime: '24:00:00', scrollTime: '08:00:00' };
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
