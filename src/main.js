@@ -52,6 +52,7 @@ onAuthChange((session) => {
             <button data-view="timeGridWeek">주</button>
             <button data-view="timeGridDay">일</button>
           </div>
+          <button id="full-day" class="ghost-toggle" aria-pressed="false" title="0시~24시 전체 보기">전체 시간</button>
           <button data-nav="today">오늘</button>
           <button data-nav="prev" class="icon-btn" aria-label="이전">‹</button>
           <button data-nav="next" class="icon-btn" aria-label="다음">›</button>
@@ -65,6 +66,7 @@ onAuthChange((session) => {
 
   const title = document.getElementById('cal-title');
   const viewButtons = app.querySelectorAll('[data-view]');
+  const fullDayButton = document.getElementById('full-day');
 
   // 캘린더·미니 달력·할 일 목록은 서로 영향을 주므로 한쪽이 바뀌면 다른 쪽도 새로고침합니다
   const todoList = createTodoList(document.getElementById('todo-list'), { onChange: () => calendar.refresh() });
@@ -77,10 +79,17 @@ onAuthChange((session) => {
       title.textContent = text;
       for (const b of viewButtons) b.classList.toggle('active', b.dataset.view === viewType);
       mini.highlight(start, end, viewType !== 'dayGridMonth');
+      fullDayButton.hidden = viewType === 'dayGridMonth'; // 월 보기에는 시간 칸이 없습니다
     },
   });
 
   for (const b of viewButtons) b.addEventListener('click', () => calendar.changeView(b.dataset.view));
+  const syncFullDay = (on) => {
+    fullDayButton.classList.toggle('active', on);
+    fullDayButton.setAttribute('aria-pressed', String(on));
+  };
+  syncFullDay(calendar.isFullDay());
+  fullDayButton.addEventListener('click', () => syncFullDay(calendar.toggleFullDay()));
   app.querySelector('[data-nav="today"]').addEventListener('click', () => calendar.today());
   app.querySelector('[data-nav="prev"]').addEventListener('click', () => calendar.prev());
   app.querySelector('[data-nav="next"]').addEventListener('click', () => calendar.next());
