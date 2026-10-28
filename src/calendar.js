@@ -7,7 +7,7 @@ import { listEventsBetween, listTodos, updateEvent, setTodoDone, setTodoDueDate,
 import { toDateKey, toTimeKey, addDays } from './shared/dates.js';
 import { openNewEvent, openEditEvent } from './eventDialog.js';
 import { DEFAULT_COLOR } from './colors.js';
-import { isTimetable } from './shared/timetable.js';
+import { isTimetable, TIMETABLE_MEMO } from './shared/timetable.js';
 
 const VIEW_KEY = 'planning-web:view';
 const FULL_DAY_KEY = 'planning-web:full-day';
@@ -200,8 +200,18 @@ export function createCalendar(container, { onChange, onDatesSet } = {}) {
 
     // 일정 색은 CSS 변수로 넘겨서 "연한 배경 + 진한 왼쪽 선"으로 그립니다
     eventDidMount: (info) => {
-      const color = info.event.extendedProps.color;
+      const { color, row, kind } = info.event.extendedProps;
       if (color) info.el.style.setProperty('--ev', color);
+      // 메모가 있으면 제목 아래에 작게 보여 줍니다
+      const memo = kind === 'event' && row.memo !== TIMETABLE_MEMO ? row.memo : null;
+      const frame = info.el.querySelector('.fc-event-title-container') ?? info.el.querySelector('.fc-event-main-frame');
+      if (memo && frame) {
+        const note = document.createElement('div');
+        note.className = 'ev-memo';
+        note.textContent = memo;
+        frame.append(note);
+        info.el.title = `${info.event.title}\n${memo}`;
+      }
     },
 
     // 빈 칸을 누르거나 끌어서 범위를 고르면 새 일정 창을 엽니다

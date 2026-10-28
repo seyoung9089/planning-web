@@ -1,5 +1,5 @@
 import { addEvent, updateEvent, deleteEvent, setTimetableColor } from './shared/api.js';
-import { isTimetable } from './shared/timetable.js';
+import { isTimetable, TIMETABLE_MEMO } from './shared/timetable.js';
 import { toDateKey, toTimeKey, fromKeys, addDays, parseTime } from './shared/dates.js';
 import { EVENT_COLORS, DEFAULT_COLOR } from './colors.js';
 
@@ -8,7 +8,10 @@ dialog.className = 'event-dialog';
 dialog.innerHTML = `
   <form method="dialog">
     <input name="title" class="title-input" placeholder="제목 추가" maxlength="200" required autocomplete="off" />
-    <label class="check"><input name="allDay" type="checkbox" /> 하루 종일</label>
+    <div class="checks">
+      <label class="check"><input name="allDay" type="checkbox" /> 하루 종일</label>
+      <label class="check" title="수업 시간표는 월 보기에서 숨겨지고, 지나도 흐려지지 않으며, 색을 바꾸면 같은 수업 전체가 바뀝니다"><input name="timetable" type="checkbox" /> 수업 시간표</label>
+    </div>
     <div class="when">
       <input name="startDate" type="date" required aria-label="시작 날짜" />
       <input name="startTime" class="time-input" placeholder="13:05" maxlength="12" autocomplete="off" aria-label="시작 시간" />
@@ -128,12 +131,13 @@ form.addEventListener('submit', async (e) => {
     allDay,
     color: form.color.value || DEFAULT_COLOR,
     memo: form.memo.value.trim() || null,
+    isTimetable: form.timetable.checked,
   };
   try {
     if (editingId) await updateEvent(editingId, fields);
     else await addEvent(fields);
     // 수업 시간표의 색을 바꾸면 같은 수업의 다른 주 칸도 모두 같은 색으로 바꿉니다
-    if (editingRow && isTimetable(editingRow) && fields.color !== editingRow.color) {
+    if (editingRow && isTimetable(editingRow) && fields.isTimetable && fields.color !== editingRow.color) {
       await setTimetableColor(editingRow.title, fields.color);
     }
     dialog.close();
@@ -145,7 +149,7 @@ form.addEventListener('submit', async (e) => {
 
 // 새 일정 만들기: start/end는 캘린더에서 고른 범위입니다
 export function openNewEvent({ start, end, allDay }, saved) {
-  fill({ title: '', start, end, allDay, color: DEFAULT_COLOR, memo: '' });
+  fill({ title: '', start, end, allDay, color: DEFAULT_COLOR, memo: '', timetable: false });
   editingId = null;
   editingRow = null;
   onSaved = saved;
@@ -161,7 +165,9 @@ export function openEditEvent(row, saved) {
     end: new Date(row.end_at),
     allDay: row.all_day,
     color: row.color || DEFAULT_COLOR,
-    memo: row.memo || '',
+    // 예전 방식의 '[시간표]' 꼬리표는 메모로 보이지 않게 합니다
+    memo: row.memo === TIMETABLE_MEMO ? '' : row.memo || '',
+    timetable: isTimetable(row),
   });
   editingId = row.id;
   editingRow = row;
@@ -170,7 +176,7 @@ export function openEditEvent(row, saved) {
   dialog.showModal();
 }
 
-function fill({ title, start, end, allDay, color, memo }) {
+function fill({ title, start, end, allDay, color, memo, timetable }) {
   message.textContent = '';
   form.title.value = title;
   form.allDay.checked = allDay;
@@ -179,6 +185,7 @@ function fill({ title, start, end, allDay, color, memo }) {
   form.startTime.value = allDay ? '' : toTimeKey(start);
   form.endTime.value = allDay ? '' : toTimeKey(end);
   form.memo.value = memo;
+  form.timetable.checked = timetable;
   for (const input of [form.startTime, form.endTime]) input.classList.remove('invalid');
   for (const radio of form.querySelectorAll('[name="color"]')) radio.checked = radio.value === color;
   syncAllDay();

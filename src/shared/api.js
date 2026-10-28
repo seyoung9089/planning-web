@@ -1,5 +1,4 @@
 import { supabase } from './supabase.js';
-import { TIMETABLE_MEMO } from './timetable.js';
 
 // ---- 로그인 ----
 
@@ -89,7 +88,7 @@ export async function listEventsBetween(from, to) {
 }
 
 // 화면에서 쓰는 이름(startAt 등)을 데이터베이스 칸 이름(start_at 등)으로 바꿉니다
-function toEventRow({ title, startAt, endAt, allDay, color, memo }) {
+function toEventRow({ title, startAt, endAt, allDay, color, memo, isTimetable }) {
   const row = {};
   if (title !== undefined) row.title = title;
   if (startAt !== undefined) row.start_at = startAt.toISOString();
@@ -97,11 +96,12 @@ function toEventRow({ title, startAt, endAt, allDay, color, memo }) {
   if (allDay !== undefined) row.all_day = allDay;
   if (color !== undefined) row.color = color;
   if (memo !== undefined) row.memo = memo;
+  if (isTimetable !== undefined) row.is_timetable = isTimetable;
   return row;
 }
 
-export async function addEvent({ title, startAt, endAt, allDay = false, color = null, memo = null }) {
-  const { error } = await supabase.from('events').insert(toEventRow({ title, startAt, endAt, allDay, color, memo }));
+export async function addEvent({ title, startAt, endAt, allDay = false, color = null, memo = null, isTimetable = false }) {
+  const { error } = await supabase.from('events').insert(toEventRow({ title, startAt, endAt, allDay, color, memo, isTimetable }));
   if (error) throw error;
 }
 
@@ -112,7 +112,7 @@ export async function updateEvent(id, fields) {
 
 // 같은 이름의 수업 시간표 전체(모든 주)의 색을 한 번에 바꿉니다
 export async function setTimetableColor(title, color) {
-  const { error } = await supabase.from('events').update({ color }).eq('memo', TIMETABLE_MEMO).eq('title', title);
+  const { error } = await supabase.from('events').update({ color }).eq('is_timetable', true).eq('title', title);
   if (error) throw error;
 }
 
