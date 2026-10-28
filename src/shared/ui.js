@@ -2,6 +2,7 @@ import { signIn, signUp, listTodos, addTodo, setTodoDone, deleteTodo } from './a
 import { toDateKey, addDays, dueLabel } from './dates.js';
 import { periodLabel } from './timetable.js';
 import { openPeriodPicker } from './schedulePicker.js';
+import { sortTodos } from './todoOrder.js';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -92,7 +93,7 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
   }
 
   async function refresh() {
-    const todos = await listTodos();
+    const todos = sortTodos(await listTodos());
     list.innerHTML = '';
     if (todos.length === 0) {
       list.innerHTML = '<li class="empty">아직 할 일이 없습니다.</li>';
@@ -105,7 +106,7 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
         <label><input type="checkbox" ${todo.done ? 'checked' : ''} /> <span class="title"></span></label>
         <button class="icon" title="삭제" aria-label="삭제">×</button>
         <div class="meta">
-          <button type="button" class="when" title="몇 교시에 할지 정하기">${CLOCK_ICON}<span>교시 정하기</span></button>
+          <button type="button" class="when" title="몇 교시에 할지 정하기">${CLOCK_ICON}<span>교시</span></button>
           <span class="due"></span>
         </div>`;
       li.querySelector('.title').textContent = todo.title;

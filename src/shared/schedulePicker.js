@@ -4,7 +4,7 @@ import { PERIODS, periodRange, findPeriodIndexes, busyByPeriod } from './timetab
 
 // 할 일 아래 시계 버튼을 누르면 뜨는 패널:
 // 맨 위에서 요일을 고르고, 그날 교시가 세로로 쭉 나옵니다.
-// 이미 일정이 있거나 지난 교시는 회색으로 막고 옆에 일정 이름을 적습니다.
+// 이미 일정이 있는 교시는 회색으로 막고 옆에 일정 이름을, 지난 교시는 취소선을 긋습니다.
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
 const dialog = document.createElement('dialog');
@@ -116,11 +116,12 @@ async function selectDay(key) {
   allDayEl.hidden = allDay.length === 0;
 
   const now = new Date();
-  blocked = PERIODS.map((p, i) => busy[i].length > 0 || fromKeys(key, p.end) <= now);
+  const past = PERIODS.map((p) => fromKeys(key, p.end) <= now);
+  blocked = PERIODS.map((p, i) => busy[i].length > 0 || past[i]);
   if (selection && blocked.slice(selection[0], selection[1] + 1).some(Boolean)) selection = null;
 
   rowsEl.innerHTML = PERIODS.map((p, i) => {
-    return `<li><button type="button" class="row" data-index="${i}" ${blocked[i] ? 'disabled' : ''}>
+    return `<li><button type="button" class="row${past[i] ? ' past' : ''}" data-index="${i}" ${blocked[i] ? 'disabled' : ''}>
       <span class="name">${p.label}</span>
       <span class="time">${p.start}</span>
       <span class="what"></span>
@@ -128,8 +129,7 @@ async function selectDay(key) {
   }).join('');
   // 일정 이름은 사용자가 쓴 글이라 textContent로 넣습니다
   rowsEl.querySelectorAll('.what').forEach((el, i) => {
-    const past = fromKeys(key, PERIODS[i].end) <= now;
-    el.textContent = busy[i].join(', ') || (past ? '지난 시간' : '');
+    el.textContent = past[i] ? '' : busy[i].join(', ');
   });
   rowsEl.classList.remove('loading');
   renderSelection();

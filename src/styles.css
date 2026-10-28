@@ -20,7 +20,7 @@ button.icon-btn:hover { background: var(--hover); color: var(--text); }
 
 /* 사이드바 할 일 목록은 조금 더 촘촘하게 */
 .sidebar .todo-add input:not([type='date']) { background: var(--bg); padding: 8px 10px; font-size: 14px; }
-.sidebar .todos li { padding: 6px 2px; font-size: 14px; border-bottom-color: var(--border); }
+.sidebar .todos li { padding: 5px 6px; font-size: 14px; }
 
 /* ---- 미니 달력 ---- */
 .mini-cal { padding: 0 2px; }

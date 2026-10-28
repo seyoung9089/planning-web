@@ -42,4 +42,4 @@ button.ghost { border-color: transparent; background: none; padding: 4px 8px; fo
 .events li.past { opacity: 0.5; }
 .events li.empty { border: none; background: none; color: var(--muted); justify-content: center; }
 
-.todos li { padding: 6px 2px; }
+.todos li { padding: 5px 6px; }

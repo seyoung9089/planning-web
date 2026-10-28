@@ -46,14 +46,27 @@ button.icon:hover { color: var(--danger); }
   border: 1px solid var(--border); border-radius: 12px; }
 .auth .message { margin: 0; min-height: 1.5em; color: var(--danger); font-size: 14px; }
 
+/* 할 일 목록: 노션처럼 줄 구분선 없이, 마우스를 올린 줄만 살짝 칠합니다 */
 .todo-add { margin-bottom: 8px; }
-.todos { list-style: none; margin: 0; padding: 0; }
-.todos li { display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 4px; border-bottom: 1px solid var(--border); }
+.todos { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.todos li { display: flex; align-items: center; justify-content: space-between; padding: 6px 6px; border-radius: 6px; }
+.todos li:hover { background: var(--hover); }
 .todos li label { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer; }
-.todos li input[type='checkbox'] { width: 18px; height: 18px; accent-color: var(--primary); }
-.todos li.done span { color: var(--muted); text-decoration: line-through; }
-.todos li.empty { color: var(--muted); justify-content: center; border: none; }
+.todos li .title { overflow-wrap: anywhere; }
+.todos li input[type='checkbox'] { appearance: none; flex: none; width: 16px; height: 16px; margin: 0;
+  border: 1.5px solid var(--border-strong); border-radius: 4px; background: var(--bg); cursor: pointer;
+  display: grid; place-content: center; transition: background 0.12s, border-color 0.12s; }
+.todos li input[type='checkbox']:hover { border-color: var(--muted); }
+.todos li input[type='checkbox']:checked { background: var(--primary); border-color: var(--primary); }
+.todos li input[type='checkbox']:checked::after { content: ''; width: 8px; height: 4px; margin-top: -2px;
+  border: solid #fff; border-width: 0 0 1.75px 1.75px; transform: rotate(-45deg); }
+.todos li input[type='checkbox']:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.todos li.done .title { color: var(--faint); text-decoration: line-through; }
+.todos li button.icon { padding: 0 6px; font-size: 16px; line-height: 1; color: var(--faint); opacity: 0; }
+.todos li:hover button.icon, .todos li button.icon:focus-visible { opacity: 1; }
+.todos li button.icon:hover { background: none; color: var(--danger); }
+.todos li.empty { color: var(--faint); justify-content: center; font-size: 13px; padding: 12px 0; }
+.todos li.empty:hover { background: none; }
 
 @media (prefers-color-scheme: dark) {
   :root { --bg: #191919; --sidebar: #202020; --surface: #262626; --hover: rgba(255, 255, 255, 0.06);
@@ -68,7 +81,7 @@ button.icon:hover { color: var(--danger); }
 .due-row button.selected { background: var(--primary); color: var(--primary-text); border-color: var(--primary); }
 .due-row input[type='date'] { flex: 1; min-width: 0; padding: 3px 6px; font-size: 13px; border: 1px solid var(--border);
   border-radius: var(--radius); background: var(--bg); color: var(--text); font-family: inherit; }
-.todos .due { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.todos .due { font-size: 11.5px; font-weight: 500; padding: 1px 6px; border-radius: 4px; white-space: nowrap; }
 .todos .due:empty { display: none; }
 .todos .due.overdue { background: #fce8e6; color: #c5221f; }
 .todos .due.today { background: #fef7e0; color: #b06000; }
@@ -80,56 +93,67 @@ button.icon:hover { color: var(--danger); }
   .todos .due.soon { background: #1e3a5f; color: #8ab4f8; }
 }
 
-/* ---- 할 일 아래 줄: 언제 할지(교시) 버튼 + 마감 배지 ---- */
-.todos li { flex-wrap: wrap; row-gap: 2px; }
-.todos li .meta { width: 100%; display: flex; align-items: center; gap: 6px; padding-left: 28px; }
-.todos li .when { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; font-size: 12px;
-  border: 1px solid transparent; border-radius: 6px; background: none; color: var(--faint); }
-.todos li .when:hover { border-color: var(--border-strong); color: var(--text); }
-.todos li .when.set { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 35%, transparent);
-  background: color-mix(in srgb, var(--primary) 8%, var(--bg)); font-weight: 600; }
-.todos li:not(:hover) .when:not(.set) span { display: none; }
-.todos li.done .when.set { opacity: 0.6; }
+/* ---- 할 일 아래 줄: 언제 할지(교시) + 마감 ---- */
+.todos li { flex-wrap: wrap; row-gap: 1px; }
+.todos li .meta { width: 100%; display: flex; align-items: center; gap: 6px; padding-left: 26px; }
+.todos li .when { display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px; margin-left: -6px; font-size: 12px;
+  border: none; border-radius: 4px; background: none; color: var(--faint); }
+.todos li .when:hover { background: var(--hover); color: var(--text); }
+.todos li .when.set { margin-left: 0; color: color-mix(in srgb, var(--primary) 80%, var(--text));
+  background: color-mix(in srgb, var(--primary) 10%, var(--bg)); font-weight: 500; }
+.todos li .when.set:hover { background: color-mix(in srgb, var(--primary) 16%, var(--bg)); }
+/* 교시를 안 정한 할 일은 마우스를 올렸을 때만 오른쪽 위에 '교시' 버튼이 나옵니다 */
+.todos li { position: relative; }
+.todos li .when:not(.set) { position: absolute; top: 5px; right: 30px; margin: 0; padding: 2px 6px;
+  background: var(--bg); box-shadow: 0 0 0 1px var(--border); opacity: 0; }
+.todos li:hover .when:not(.set), .todos li .when:not(.set):focus-visible { opacity: 1; }
+.todos li .when:not(.set):hover { background: var(--bg); color: var(--text); box-shadow: 0 0 0 1px var(--border-strong); }
+.todos li.done .when.set { opacity: 0.5; }
 
 /* ---- 교시 고르는 패널 ---- */
-.period-picker { position: fixed; border: 1px solid var(--border); border-radius: 12px; padding: 14px;
+.period-picker { position: fixed; border: 1px solid var(--border); border-radius: 10px; padding: 14px;
   width: 340px; max-width: calc(100vw - 16px); max-height: calc(100vh - 24px); overflow-y: auto;
-  background: var(--bg); color: var(--text); box-shadow: 0 10px 32px rgba(0, 0, 0, 0.22); }
-.period-picker::backdrop { background: rgba(0, 0, 0, 0.12); }
+  background: var(--bg); color: var(--text); box-shadow: 0 0 0 1px rgba(15, 15, 15, 0.04), 0 8px 24px rgba(15, 15, 15, 0.12); }
+.period-picker::backdrop { background: rgba(15, 15, 15, 0.08); }
 .period-picker.sheet { width: 100%; max-width: 100%; bottom: 0; max-height: 92vh; border-radius: 14px 14px 0 0; }
 .period-picker form { display: grid; gap: 10px; }
-.period-picker .todo-title { margin: 0; font-weight: 700; font-size: 15px; }
+.period-picker .todo-title { margin: 0 2px; font-weight: 600; font-size: 15px; }
 
 /* 맨 위 요일 줄 */
 .period-picker .week { display: flex; align-items: center; gap: 2px; }
 .period-picker .week .icon-btn { border: none; background: none; padding: 4px 4px; font-size: 18px; color: var(--muted); }
 .period-picker .days { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
-.period-picker .days button { display: grid; padding: 4px 0; border-radius: 8px; line-height: 1.25; font-size: 13px; }
+.period-picker .days button { display: grid; padding: 4px 0; border: none; border-radius: 6px; background: none; line-height: 1.25; font-size: 13px; }
+.period-picker .days button:hover { background: var(--hover); }
+.period-picker .days b { font-weight: 500; }
 .period-picker .days small { font-size: 10.5px; color: var(--muted); }
 .period-picker .days .sun b { color: var(--today); }
 .period-picker .days .sat b { color: var(--primary); }
-.period-picker .days .selected { background: var(--text); border-color: var(--text); }
+.period-picker .days .selected, .period-picker .days .selected:hover { background: var(--text); }
 .period-picker .days .selected b, .period-picker .days .selected small { color: var(--bg); }
 
 .period-picker .all-day { margin: 0; font-size: 12px; color: var(--muted); background: var(--surface); padding: 4px 8px; border-radius: 6px; }
 
 /* 하루 교시 목록 */
-.period-picker .rows { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.period-picker .rows { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .period-picker .rows.loading { opacity: 0.4; }
 .period-picker .rows li + li { border-top: 1px solid var(--border); }
 .period-picker .row { display: grid; grid-template-columns: 76px 44px 1fr; align-items: center; width: 100%;
-  padding: 7px 10px; border: none; border-radius: 0; background: var(--bg); text-align: left; font-size: 14px; }
-.period-picker .row:hover:not(:disabled) { background: color-mix(in srgb, var(--primary) 8%, var(--bg)); }
-.period-picker .row .name { font-weight: 600; }
+  padding: 7px 12px; border: none; border-radius: 0; background: var(--bg); text-align: left; font-size: 14px; }
+.period-picker .row:hover:not(:disabled) { background: var(--hover); }
+.period-picker .row .name { font-weight: 500; }
 .period-picker .row .time { font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
 .period-picker .row .what { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .period-picker .row:disabled { background: var(--surface); cursor: not-allowed; }
-.period-picker .row:disabled .name, .period-picker .row:disabled .time { color: var(--faint); font-weight: 500; }
+.period-picker .row:disabled .name, .period-picker .row:disabled .time { color: var(--faint); }
+/* 지난 교시: 글자칸은 비우고 교시와 시간에 취소선 */
+.period-picker .row.past { background: var(--bg); }
+.period-picker .row.past .name, .period-picker .row.past .time { text-decoration: line-through; text-decoration-color: var(--faint); }
 .period-picker .row.selected, .period-picker .row.selected:hover:not(:disabled) { background: var(--primary); }
 .period-picker .row.selected .name, .period-picker .row.selected .time, .period-picker .row.selected .what { color: var(--primary-text); }
 
 .period-picker .hint { margin: 0; font-size: 11.5px; color: var(--faint); }
 .period-picker .actions { display: flex; gap: 6px; }
 .period-picker .actions .spacer { flex: 1; }
-.period-picker .actions button { padding: 6px 14px; font-size: 14px; }
+.period-picker .actions button { padding: 5px 12px; font-size: 13.5px; }
 .period-picker .danger { color: var(--danger); border-color: transparent; background: none; }
