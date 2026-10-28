@@ -1,0 +1,5 @@
+/extension/*.crx
+  Content-Type: application/x-chrome-extension
+/extension/update.xml
+  Content-Type: application/xml
+  Cache-Control: no-cache
