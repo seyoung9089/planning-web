@@ -69,14 +69,14 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
         <span>마감</span>
         <button type="button" data-due="0">오늘</button>
         <button type="button" data-due="1">내일</button>
-        <input name="dueText" class="due-text" placeholder="다음주 화" maxlength="20" autocomplete="off" aria-label="마감일 직접 쓰기" />
+        <input name="dueText" class="due-text" placeholder="마감 기한" maxlength="20" autocomplete="off" aria-label="마감일 직접 쓰기" />
         <button type="button" class="due-pick" title="달력에서 고르기" aria-label="달력에서 고르기">📅</button>
         <input name="due" type="date" class="due-date" tabindex="-1" aria-hidden="true" />
       </div>
       <p class="due-hint" aria-live="polite"></p>
       <div class="due-popup" role="dialog" aria-label="마감일 입력" hidden>
         <div class="due-popup-head"><b>마감일</b><span>Enter 저장 · 비우면 오늘 · Esc 취소</span></div>
-        <input name="popDue" placeholder="예: 다음주 화, 금요일, 11/3" maxlength="20" autocomplete="off" />
+        <input name="popDue" placeholder="마감 기한" maxlength="20" autocomplete="off" />
         <p class="pop-hint" aria-live="polite"></p>
       </div>
     </form>
@@ -123,17 +123,19 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
     popup.hidden = true;
     if (backToTitle) form.title.focus();
   }
-  function showPopHint() {
+  // 쓰는 동안에는 알아본 날짜만 보여 주고, 못 알아본다는 오류는 Enter를 눌렀을 때만 띄웁니다
+  function showPopHint(showError = false) {
     const text = form.popDue.value.trim();
     const date = text ? parseDueText(text) : null;
-    form.popDue.classList.toggle('invalid', Boolean(text) && !date);
-    popHint.className = 'pop-hint' + (text && !date ? ' error' : '');
+    const bad = showError && Boolean(text) && !date;
+    form.popDue.classList.toggle('invalid', bad);
+    popHint.className = 'pop-hint' + (bad ? ' error' : '');
     if (!text) popHint.textContent = '→ 오늘 마감';
     else if (date) popHint.textContent = `→ ${date.getMonth() + 1}월 ${date.getDate()}일 (${'일월화수목금토'[date.getDay()]}) 마감`;
-    else popHint.textContent = '날짜를 알아보지 못했습니다';
+    else popHint.textContent = bad ? '날짜를 알아보지 못했습니다 (예: 다음주 화, 금요일, 11/3)' : '';
     return { text, date };
   }
-  form.popDue.addEventListener('input', showPopHint);
+  form.popDue.addEventListener('input', () => showPopHint());
   form.popDue.addEventListener('keydown', (e) => {
     if (e.isComposing) return;
     if (e.key === 'Escape') {
@@ -141,7 +143,7 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
       closePopup(true);
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      const { text, date } = showPopHint();
+      const { text, date } = showPopHint(true);
       if (text && !date) return; // 잘못 쓴 날짜면 고칠 때까지 기다립니다
       form.due.value = date ? toDateKey(date) : '';
       closePopup(true);
@@ -167,7 +169,7 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
     const text = form.dueText.value.trim();
     const date = text ? parseDueText(text) : null;
     form.due.value = date ? toDateKey(date) : '';
-    form.dueText.classList.toggle('invalid', Boolean(text) && !date);
+    form.dueText.classList.remove('invalid');
     syncDueButtons(false);
   });
 
@@ -176,7 +178,7 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
     return `${m}/${d}`;
   }
 
-  function syncDueButtons(updateText = true) {
+  function syncDueButtons(updateText = true, showError = false) {
     for (const button of form.querySelectorAll('[data-due]')) {
       const key = toDateKey(addDays(new Date(), Number(button.dataset.due)));
       button.classList.toggle('selected', form.due.value === key);
@@ -187,11 +189,12 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
       const date = fromKeys(form.due.value);
       dueHint.textContent = `→ ${date.getMonth() + 1}월 ${date.getDate()}일 (${'일월화수목금토'[date.getDay()]}) 마감`;
       dueHint.className = 'due-hint';
-    } else if (text) {
-      dueHint.textContent = '날짜를 알아보지 못했습니다 (예: 다음주 화, 11/3)';
+    } else if (text && showError) {
+      dueHint.textContent = '날짜를 알아보지 못했습니다 (예: 다음주 화, 금요일, 11/3)';
       dueHint.className = 'due-hint error';
     } else {
       dueHint.textContent = '';
+      dueHint.className = 'due-hint';
     }
   }
 
@@ -242,6 +245,8 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
     const title = form.title.value.trim();
     if (!title) return;
     if (form.dueText.value.trim() && !form.due.value) {
+      form.dueText.classList.add('invalid');
+      syncDueButtons(false, true);
       form.dueText.focus();
       return;
     }
