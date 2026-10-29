@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js';
+import { toDateKey } from './dates.js';
 
 // ---- 로그인 ----
 
@@ -37,8 +38,9 @@ export async function listTodos() {
 }
 
 // schedule: { startAt, endAt }를 주면 처음부터 그 시간(교시)에 하기로 정해 저장합니다
+// 날짜를 안 정한 할 일은 오늘 날짜로 넣어서 캘린더의 오늘 「종일」 칸에 보이게 합니다
 export async function addTodo(title, dueDate = null, schedule = null) {
-  const row = { title, due_date: dueDate };
+  const row = { title, due_date: dueDate ?? (schedule ? toDateKey(schedule.startAt) : toDateKey(new Date())) };
   if (schedule) {
     row.scheduled_start = schedule.startAt.toISOString();
     row.scheduled_end = schedule.endAt.toISOString();
