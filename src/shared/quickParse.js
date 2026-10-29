@@ -139,3 +139,11 @@ export function parseQuick(input, now = new Date()) {
   }
   return { kind: 'todo', title: title || input.trim(), dueDate: date };
 }
+
+// 할 일 입력 칸용: "금요일 수행평가"의 날짜 말을 마감일로 바꾸고 제목에서 뺍니다. 시간은 보지 않습니다
+// { title, date(없으면 null) }
+export function parseTodoDate(input, now = new Date()) {
+  const [date, rest] = takeDate(` ${input.trim()} `, now);
+  const title = rest.replace(/\s+/g, ' ').trim();
+  return { title: title || input.trim(), date };
+}

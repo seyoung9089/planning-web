@@ -3,7 +3,7 @@ import { toDateKey, addDays, dueLabel } from './dates.js';
 import { periodLabel } from './timetable.js';
 import { openPeriodPicker } from './schedulePicker.js';
 import { sortTodos } from './todoOrder.js';
-import { parseEvening } from './quickParse.js';
+import { parseEvening, parseTodoDate } from './quickParse.js';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -144,7 +144,9 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
     if (evening) {
       await addTodo(evening.title, form.due.value || (evening.date ? toDateKey(evening.date) : null), evening.schedule);
     } else {
-      await addTodo(title, form.due.value || null);
+      // "금요일 수행평가"처럼 요일·날짜를 쓰면 그 날을 마감일로 하고 제목에서는 뺍니다
+      const parsed = parseTodoDate(title);
+      await addTodo(parsed.title, form.due.value || (parsed.date ? toDateKey(parsed.date) : null));
     }
     form.title.value = '';
     form.due.value = '';
