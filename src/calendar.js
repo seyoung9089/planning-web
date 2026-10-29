@@ -4,7 +4,8 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { listEventsBetween, listTodos, updateEvent, setTodoDone, setTodoDueDate, setTodoSchedule } from './shared/api.js';
-import { toDateKey, toTimeKey, addDays } from './shared/dates.js';
+import { toDateKey, toTimeKey, addDays, dueLabel } from './shared/dates.js';
+import { topTodosForToday } from './shared/todoOrder.js';
 import { openNewEvent, openEditEvent } from './eventDialog.js';
 import { DEFAULT_COLOR } from './colors.js';
 import { isTimetable, TIMETABLE_MEMO } from './shared/timetable.js';
@@ -124,6 +125,20 @@ function todoToCalendar(row) {
   return { ...base, start: row.due_date, allDay: true, durationEditable: false };
 }
 
+// 가장 급한 할 일은 마감일과 상관없이 오늘 「종일」 칸에도 띄웁니다 (원래 마감일 칸에도 그대로 있습니다)
+function topTodoToCalendar(row, todayKey, rank) {
+  const due = dueLabel(row.due_date);
+  return {
+    id: 'top-' + row.id,
+    title: '○ ' + row.title + (due ? ` · ${due.text}` : ''),
+    start: todayKey,
+    allDay: true,
+    editable: false,
+    classNames: ['todo-item', 'top'],
+    extendedProps: { kind: 'todo', row, rank },
+  };
+}
+
 function todoVisible(row, from, to) {
   if (row.scheduled_start) return new Date(row.scheduled_start) < to && new Date(row.scheduled_end) > from;
   return row.due_date && row.due_date >= toDateKey(from) && row.due_date < toDateKey(to);
@@ -162,6 +177,8 @@ export function createCalendar(container, { onChange, onDatesSet } = {}) {
     snapDuration: minutesToDuration(snapMinutes),
     dayMaxEvents: true,
     eventDisplay: 'block',
+    // 급한 할 일(rank 0~2)은 목록 순서대로 보이게 합니다
+    eventOrder: 'start,-duration,allDay,rank,title',
     selectable: true,
     selectMirror: true,
     editable: true,
@@ -192,7 +209,13 @@ export function createCalendar(container, { onChange, onDatesSet } = {}) {
         const visibleTodos = todos.filter((t) => todoVisible(t, info.start, info.end));
         // 월 보기는 한 달 계획용이라 수업 시간표는 숨기고 할 일과 내가 넣은 일정만 보여 줍니다
         const shown = calendar.view?.type === 'dayGridMonth' ? events.filter((row) => !isTimetable(row)) : events;
-        success([...shown.map(eventToCalendar), ...visibleTodos.map(todoToCalendar)]);
+        const todayKey = toDateKey(new Date());
+        const tops = todayKey >= toDateKey(info.start) && todayKey < toDateKey(info.end) ? topTodosForToday(todos, todayKey) : [];
+        success([
+          ...shown.map(eventToCalendar),
+          ...tops.map((row, i) => topTodoToCalendar(row, todayKey, i)),
+          ...visibleTodos.map(todoToCalendar),
+        ]);
       } catch (err) {
         failure(err);
       }

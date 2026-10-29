@@ -17,3 +17,12 @@ export function sortTodos(todos) {
     })
     .map(({ t }) => t);
 }
+
+// 오늘 「종일」 칸에 띄울 가장 급한 할 일 n개 (목록 맨 위 순서 그대로, 안 끝난 것만).
+// 마감일이 오늘이라 이미 오늘 종일 칸에 나오는 할 일은 같은 칸에 두 번 그리지 않도록 빼고 돌려줍니다
+export function topTodosForToday(todos, todayKey, n = 3) {
+  return sortTodos(todos)
+    .filter((t) => !t.done)
+    .slice(0, n)
+    .filter((t) => t.scheduled_start || t.due_date !== todayKey);
+}
