@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseQuick, parseTodoDate } from '../src/shared/quickParse.js';
+import { parseQuick, parseTodoDate, parseDueText } from '../src/shared/quickParse.js';
 
 // 어느 컴퓨터에서 돌려도 같은 결과가 나오도록 한국 시간으로 고정합니다
 process.env.TZ = 'Asia/Seoul';
@@ -65,4 +65,18 @@ test('할 일 칸: 요일·날짜는 마감일로 바꾸고 제목에서 뺀다'
   r = parseTodoDate('수학 숙제', now);
   assert.equal(r.title, '수학 숙제');
   assert.equal(r.date, null);
+});
+
+test('마감 칸: 날짜 말만 알아보고, 다른 글자가 섞이면 null', () => {
+  // 기준: 2026-10-29 (목)
+  const thu = new Date(2026, 9, 29, 9, 0);
+  assert.equal(day(parseDueText('다음주 화요일', thu)), '11/3');
+  assert.equal(day(parseDueText('다음 주 화', thu)), '11/3');
+  assert.equal(day(parseDueText('금', thu)), '10/30');
+  assert.equal(day(parseDueText('내일', thu)), '10/30');
+  assert.equal(day(parseDueText('11/3', thu)), '11/3');
+  assert.equal(day(parseDueText('11월 3일 (화)', thu)), '11/3');
+  assert.equal(parseDueText('', thu), null);
+  assert.equal(parseDueText('다음주쯤', thu), null);
+  assert.equal(parseDueText('화요일 수행평가', thu), null);
 });

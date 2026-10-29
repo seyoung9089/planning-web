@@ -147,3 +147,14 @@ export function parseTodoDate(input, now = new Date()) {
   const title = rest.replace(/\s+/g, ' ').trim();
   return { title: title || input.trim(), date };
 }
+
+// 마감 칸에 쓴 "다음주 화요일", "금", "11/3", "11월 3일 (화)" 같은 날짜 말을 Date로 바꿉니다.
+// 날짜 말 말고 다른 글자가 남으면 잘못 쓴 것으로 보고 null
+export function parseDueText(input, now = new Date()) {
+  let cleaned = String(input ?? '').replace(/\([일월화수목금토]\)/g, ' ').trim();
+  if (!cleaned) return null;
+  // 마감 칸에서는 "화", "다음주 금"처럼 요일 한 글자만 써도 알아봅니다
+  if (/(^|\s|주)[일월화수목금토]$/.test(cleaned)) cleaned += '요일';
+  const [date, rest] = takeDate(` ${cleaned} `, now);
+  return date && !rest.trim() ? date : null;
+}
