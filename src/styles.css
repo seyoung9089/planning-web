@@ -143,6 +143,8 @@ button.icon-btn:hover { background: var(--hover); color: var(--text); }
 .fc .todo-item.done .fc-event-title { text-decoration: line-through; }
 .fc .todo-item.overdue { border-color: var(--danger); }
 .fc .todo-item.overdue .fc-event-main { color: var(--danger); }
+/* 오늘 종일 칸에 띄운 급한 할 일 3개: 왼쪽 주황 선으로 표시 */
+.fc .todo-item.top { border-left: 3px solid #f4511e; }
 
 /* ---- 일정 추가/수정 창 ---- */
 .event-dialog { border: none; border-radius: 12px; padding: 20px; width: min(440px, calc(100vw - 32px));
