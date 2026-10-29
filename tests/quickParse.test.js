@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseQuick } from '../src/shared/quickParse.js';
+import { parseQuick, parseTodoDate } from '../src/shared/quickParse.js';
 
 // 어느 컴퓨터에서 돌려도 같은 결과가 나오도록 한국 시간으로 고정합니다
 process.env.TZ = 'Asia/Seoul';
@@ -51,3 +51,18 @@ test('내일 저녁활동 2', () => assert.equal(eveningSummary('내일 저녁�
 test('오늘 저녁활동이 이미 끝났으면 내일로', () =>
   assert.equal(eveningSummary('저녁활동 1 숙제', new Date(2026, 9, 28, 21, 30)), 'todo 숙제 10/29 19:00-20:00'));
 test('저녁 8시처럼 시간을 직접 쓰면 일정', () => assert.equal(summary('저녁 8시 저녁활동 독서'), '일정 저녁활동 독서 10/28 20:00-21:00'));
+
+test('할 일 칸: 요일·날짜는 마감일로 바꾸고 제목에서 뺀다', () => {
+  let r = parseTodoDate('금요일 수행평가', now);
+  assert.equal(r.title, '수행평가');
+  assert.equal(day(r.date), '10/30');
+  r = parseTodoDate('영어 단어 다음주 월요일', now);
+  assert.equal(r.title, '영어 단어');
+  assert.equal(day(r.date), '11/2');
+  r = parseTodoDate('11/3 독후감', now);
+  assert.equal(r.title, '독후감');
+  assert.equal(day(r.date), '11/3');
+  r = parseTodoDate('수학 숙제', now);
+  assert.equal(r.title, '수학 숙제');
+  assert.equal(r.date, null);
+});
