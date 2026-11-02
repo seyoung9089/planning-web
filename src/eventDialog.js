@@ -136,8 +136,12 @@ form.addEventListener('submit', async (e) => {
   try {
     if (editingId) await updateEvent(editingId, fields);
     else await addEvent(fields);
-    // 「수업 시간표」를 새로 체크하면 이번 쿼터 동안 매주 같은 요일·시간에 반복해서 넣습니다
-    if (fields.isTimetable && !allDay && !(editingRow && isTimetable(editingRow))) {
+    // 「수업 시간표」로 저장하면 이번 쿼터 동안 매주 같은 요일·시간에 빠진 주를 채워 넣습니다.
+    // 이미 수업인 일정의 시간을 옮긴 경우만 그 한 칸만 옮기고 반복하지 않습니다 (옛 시간 칸이 남아 겹치지 않게)
+    const movedClass =
+      editingRow && isTimetable(editingRow) &&
+      (new Date(editingRow.start_at).getTime() !== startAt.getTime() || new Date(editingRow.end_at).getTime() !== endAt.getTime());
+    if (fields.isTimetable && !allDay && !movedClass) {
       await repeatForQuarter(fields);
     }
     // 수업 시간표의 색을 바꾸면 같은 수업의 다른 주 칸도 모두 같은 색으로 바꿉니다
