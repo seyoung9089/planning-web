@@ -2,6 +2,7 @@
 import { supabase } from '../src/shared/supabase.js';
 import { listEventsBetween, listTodos } from '../src/shared/api.js';
 import { toDateKey } from '../src/shared/dates.js';
+import { isTimetable } from '../src/shared/timetable.js';
 
 const REMIND_BEFORE_MIN = 10; // 일정 몇 분 전에 알릴지
 const DUE_REMINDER_HOUR = 18; // 오늘 마감인 할 일을 몇 시에 알릴지
@@ -56,7 +57,8 @@ async function syncReminders() {
     try {
       const events = await listEventsBetween(now, new Date(now.getTime() + 24 * 3600000));
       for (const ev of events) {
-        if (ev.all_day) continue;
+        // 종일 일정과 수업 시간표는 알리지 않습니다 (수업마다 알림이 오면 너무 많음)
+        if (ev.all_day || isTimetable(ev)) continue;
         const start = new Date(ev.start_at);
         const when = start.getTime() - REMIND_BEFORE_MIN * 60000;
         if (when <= Date.now()) continue;
