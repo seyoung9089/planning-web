@@ -1,4 +1,4 @@
-import { fromKeys, toTimeKey } from './dates.js';
+import { fromKeys, toTimeKey, toDateKey, addDays } from './dates.js';
 
 // 우리 학교 하루 시간표. 할 일을 "몇 교시에 할지" 고를 때 씁니다.
 // 시간표가 바뀌면 이 목록만 고치면 됩니다.
@@ -23,6 +23,24 @@ export const PERIODS = [
 // 수업 시간표인지는 events.is_timetable 칸에 저장합니다. 예전에는 메모에 '[시간표]'라고 적어 구분했습니다
 export const TIMETABLE_MEMO = '[시간표]';
 export const isTimetable = (row) => row?.is_timetable === true || row?.memo === TIMETABLE_MEMO;
+
+// 이번 쿼터: 2026-10-19(월)부터 9주, 마지막 수업일 12-18(금)
+export const QUARTER = { start: '2026-10-19', end: '2026-12-18' };
+
+// 수업 하나(start~end)를 쿼터 기간 동안 매주 같은 요일·시간으로 반복한 목록. 원래 그 주는 빼고 돌려줍니다
+export function weeklyRepeats(start, end, quarter = QUARTER) {
+  const length = end - start;
+  const list = [];
+  // 원래 날짜에서 7일씩 앞뒤로 움직이며 쿼터 안에 드는 날만 고릅니다 (시간은 그대로)
+  for (let w = -12; w <= 12; w++) {
+    if (w === 0) continue;
+    const s = addDays(start, w * 7);
+    const key = toDateKey(s);
+    if (key < quarter.start || key > quarter.end) continue;
+    list.push({ startAt: s, endAt: new Date(s.getTime() + length) });
+  }
+  return list;
+}
 
 // 그날 각 교시에 이미 무엇이 있는지 계산합니다.
 // items: [{ title, start, end }] (Date), 돌려주는 값: 교시마다 겹치는 일정 이름 목록

@@ -102,6 +102,13 @@ function toEventRow({ title, startAt, endAt, allDay, color, memo, isTimetable })
   return row;
 }
 
+// 수업 시간표처럼 일정을 한꺼번에 넣습니다
+export async function addEvents(list) {
+  if (list.length === 0) return;
+  const { error } = await supabase.from('events').insert(list.map(toEventRow));
+  if (error) throw error;
+}
+
 export async function addEvent({ title, startAt, endAt, allDay = false, color = null, memo = null, isTimetable = false }) {
   const { error } = await supabase.from('events').insert(toEventRow({ title, startAt, endAt, allDay, color, memo, isTimetable }));
   if (error) throw error;

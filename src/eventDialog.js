@@ -1,5 +1,5 @@
-import { addEvent, updateEvent, deleteEvent, setTimetableColor } from './shared/api.js';
-import { isTimetable, TIMETABLE_MEMO } from './shared/timetable.js';
+import { addEvent, addEvents, updateEvent, deleteEvent, setTimetableColor, listEventsBetween } from './shared/api.js';
+import { isTimetable, TIMETABLE_MEMO, QUARTER, weeklyRepeats } from './shared/timetable.js';
 import { toDateKey, toTimeKey, fromKeys, addDays, parseTime } from './shared/dates.js';
 import { EVENT_COLORS, DEFAULT_COLOR } from './colors.js';
 
@@ -10,7 +10,7 @@ dialog.innerHTML = `
     <input name="title" class="title-input" placeholder="제목 추가" maxlength="200" required autocomplete="off" />
     <div class="checks">
       <label class="check"><input name="allDay" type="checkbox" /> 하루 종일</label>
-      <label class="check" title="수업 시간표는 월 보기에서 숨겨지고, 지나도 흐려지지 않으며, 색을 바꾸면 같은 수업 전체가 바뀝니다"><input name="timetable" type="checkbox" /> 수업 시간표</label>
+      <label class="check" title="체크하고 저장하면 이번 쿼터(10/19~12/18) 동안 매주 같은 시간에 반복됩니다. 수업 시간표는 월 보기에서 숨겨지고, 지나도 흐려지지 않으며, 색을 바꾸면 같은 수업 전체가 바뀝니다"><input name="timetable" type="checkbox" /> 수업 시간표</label>
     </div>
     <div class="when">
       <input name="startDate" type="date" required aria-label="시작 날짜" />
@@ -136,6 +136,10 @@ form.addEventListener('submit', async (e) => {
   try {
     if (editingId) await updateEvent(editingId, fields);
     else await addEvent(fields);
+    // 「수업 시간표」를 새로 체크하면 이번 쿼터 동안 매주 같은 요일·시간에 반복해서 넣습니다
+    if (fields.isTimetable && !allDay && !(editingRow && isTimetable(editingRow))) {
+      await repeatForQuarter(fields);
+    }
     // 수업 시간표의 색을 바꾸면 같은 수업의 다른 주 칸도 모두 같은 색으로 바꿉니다
     if (editingRow && isTimetable(editingRow) && fields.isTimetable && fields.color !== editingRow.color) {
       await setTimetableColor(editingRow.title, fields.color);
@@ -146,6 +150,16 @@ form.addEventListener('submit', async (e) => {
     message.textContent = '저장 실패: ' + err.message;
   }
 });
+
+async function repeatForQuarter(fields) {
+  // 이미 같은 이름·같은 시작 시간의 수업이 있으면 두 번 넣지 않습니다
+  const existing = await listEventsBetween(fromKeys(QUARTER.start), addDays(fromKeys(QUARTER.end), 1));
+  const taken = new Set(existing.filter((row) => row.title === fields.title).map((row) => new Date(row.start_at).getTime()));
+  const copies = weeklyRepeats(fields.startAt, fields.endAt)
+    .filter(({ startAt }) => !taken.has(startAt.getTime()))
+    .map(({ startAt, endAt }) => ({ ...fields, startAt, endAt, memo: null }));
+  await addEvents(copies);
+}
 
 // 새 일정 만들기: start/end는 캘린더에서 고른 범위입니다
 export function openNewEvent({ start, end, allDay }, saved) {
