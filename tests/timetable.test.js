@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 process.env.TZ = 'Asia/Seoul';
-const { PERIODS, periodRange, periodLabel, findPeriodIndexes, busyByPeriod } = await import('../src/shared/timetable.js');
+const { PERIODS, periodRange, periodLabel, findPeriodIndexes, busyByPeriod, weeklyRepeats } = await import('../src/shared/timetable.js');
 
 const idx = (label) => PERIODS.findIndex((p) => p.label === label);
 
@@ -51,4 +51,12 @@ test('끝나는 시각이 교시 시작과 같으면 겹치지 않음', () => {
   ]);
   assert.deepEqual(busy[idx('1교시')], ['자습']);
   assert.deepEqual(busy[idx('2교시')], []);
+});
+
+test('수업을 쿼터 동안 매주 같은 요일·시간으로 반복한다 (원래 주는 뺌)', () => {
+  const start = new Date(2026, 10, 2, 19, 0); // 11/2(월) 19:00
+  const end = new Date(2026, 10, 2, 21, 0);
+  const list = weeklyRepeats(start, end, { start: '2026-10-19', end: '2026-12-18' });
+  const days = list.map((r) => `${r.startAt.getMonth() + 1}/${r.startAt.getDate()} ${r.startAt.getHours()}-${r.endAt.getHours()}`);
+  assert.deepEqual(days, ['10/19 19-21', '10/26 19-21', '11/9 19-21', '11/16 19-21', '11/23 19-21', '11/30 19-21', '12/7 19-21', '12/14 19-21']);
 });
