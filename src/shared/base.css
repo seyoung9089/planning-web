@@ -177,3 +177,7 @@ button.icon:hover { color: var(--danger); }
 .period-picker .actions .spacer { flex: 1; }
 .period-picker .actions button { padding: 5px 12px; font-size: 13.5px; }
 .period-picker .danger { color: var(--danger); border-color: transparent; background: none; }
+
+/* 할 일 입력은 칸 하나만 둡니다. 마감일은 Enter 뒤에 뜨는 팝업에서 씁니다
+   (오늘·내일·마감 기한 줄은 코드가 쓰므로 지우지 않고 화면에서만 숨깁니다) */
+.todo-add .due-row, .todo-add .due-hint { display: none; }
