@@ -104,7 +104,7 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
   const popHint = form.querySelector('.pop-hint');
 
   // 할 일을 쓰고 Enter → 마감일 팝업이 뜨고 → 날짜를 쓰고 Enter로 저장. 마우스 없이 끝납니다.
-  // 마감일을 이미 골랐거나 제목에 날짜·저녁활동을 썼으면 팝업 없이 바로 저장합니다
+  // 마감일을 이미 골랐거나 제목에 날짜·교시를 썼으면 팝업 없이 바로 저장합니다
   form.title.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' || e.isComposing) return;
     e.preventDefault();
@@ -261,7 +261,7 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
       form.dueText.focus();
       return;
     }
-    // "저녁활동 1 수학 숙제"처럼 쓰면 오후 7~8시로 정해서 저장합니다
+    // "저녁활동 1 수학 숙제", "화요일 10교시 영어"처럼 교시를 쓰면 그 시간에 하는 할 일로 저장합니다
     const evening = parseEvening(title);
     if (dueSchedule) {
       // 마감 칸에 교시를 썼으면 그 시간에 하는 할 일(캘린더 일정)로 넣습니다

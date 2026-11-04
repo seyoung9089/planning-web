@@ -98,3 +98,22 @@ test('마감 칸: 요일·날짜는 마감일, 교시를 쓰면 그 시간 일�
   assert.equal(show(parseDueInput('점심', now)), '11/4 12:10-13:10'); // 13:10에 끝나서 아직 오늘
   for (const bad of ['13교시', '목 2교시 숙제', '아무거나', '']) assert.equal(parseDueInput(bad, now), null, bad);
 });
+
+test('할 일 칸: "오늘 10교시", "화요일 10교시"는 그 시간 일정, 요일만 쓰면 마감일', async () => {
+  const { parseEvening, parseTodoDate, parseQuick } = await import('../src/shared/quickParse.js');
+  const now = new Date(2026, 10, 4, 13, 0); // 11/4(수) 오후 1시
+  const hm = (d) => `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  let r = parseEvening('오늘 10교시 수학 숙제', now);
+  assert.equal(r.title, '수학 숙제');
+  assert.equal(`${hm(r.schedule.startAt)}-${hm(r.schedule.endAt)}`, '11/4 17:20-11/4 18:05');
+  r = parseEvening('화요일 10교시 영어', now);
+  assert.equal(r.title, '영어');
+  assert.equal(hm(r.schedule.startAt), '11/10 17:20');
+  r = parseEvening('3~4교시 발표 준비', now); // 오늘 3~4교시는 지남 → 내일
+  assert.equal(hm(r.schedule.startAt), '11/5 10:40');
+  assert.equal(parseEvening('화요일 수행평가', now), null);
+  assert.equal(parseTodoDate('화요일 수행평가', now).date.getDate(), 10);
+  const q = parseQuick('목요일 10교시 독서', now);
+  assert.equal(q.kind, 'todo');
+  assert.equal(hm(q.schedule.startAt), '11/5 17:20');
+});
