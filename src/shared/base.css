@@ -47,6 +47,15 @@ button.icon:hover { color: var(--danger); }
 .auth .message { margin: 0; min-height: 1.5em; color: var(--danger); font-size: 14px; }
 .auth .message.info { color: var(--muted, #6b6b6b); }
 .auth .message.ok { color: var(--ok, #1a7f37); font-weight: 600; }
+.auth h2 { margin: 4px 0 0; }
+.auth-tabs { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--border-strong); }
+.auth-tabs button { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none;
+  padding: 8px 0; color: var(--muted); font-weight: 600; margin-bottom: -1px; }
+.auth-tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--text); }
+.auth-sub { margin: 0; color: var(--muted); font-size: 13px; }
+.auth-sub:empty { display: none; }
+.auth-switch { margin: 0; font-size: 13px; color: var(--muted); text-align: center; }
+.auth-switch .link { border: none; background: none; padding: 0; color: var(--primary); font-weight: 600; text-decoration: underline; cursor: pointer; }
 
 /* 할 일 목록: 둥근 칸 대신 줄마다 가는 선으로 나눕니다 */
 .todo-add { margin-bottom: 8px; }
