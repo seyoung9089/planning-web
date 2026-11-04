@@ -41,23 +41,54 @@ export function authErrorText(err) {
   return msg;
 }
 
-// 로그인 폼: 사이트와 사이드 패널이 같이 씁니다
+// 로그인·회원가입 폼: 사이트와 사이드 패널이 같이 씁니다
+// 위 탭으로 「로그인」과 「회원가입」 화면을 바꿉니다
 export function renderAuthForm(container) {
   container.innerHTML = `
-    <form class="auth">
+    <form class="auth" data-mode="login">
+      <div class="auth-tabs" role="tablist">
+        <button type="button" role="tab" data-mode="login">로그인</button>
+        <button type="button" role="tab" data-mode="signup">회원가입</button>
+      </div>
       <h2>로그인</h2>
+      <p class="auth-sub"></p>
       <input name="email" type="email" placeholder="이메일" autocomplete="email" required />
       <input name="password" type="password" placeholder="비밀번호 (6자 이상)" autocomplete="current-password" minlength="6" required />
-      <div class="row">
-        <button type="submit" class="primary">로그인</button>
-        <button type="button" data-action="signup">회원가입</button>
-      </div>
+      <input name="password2" type="password" placeholder="비밀번호 한 번 더" autocomplete="new-password" minlength="6" hidden />
+      <button type="submit" class="primary">로그인</button>
       <p class="message" role="status"></p>
+      <p class="auth-switch"><span></span> <button type="button" class="link"></button></p>
     </form>`;
   const form = container.querySelector('form');
+  const title = form.querySelector('h2');
+  const sub = form.querySelector('.auth-sub');
+  const submit = form.querySelector('button[type="submit"]');
   const message = form.querySelector('.message');
-  const values = () => [form.email.value.trim(), form.password.value];
+  const switchText = form.querySelector('.auth-switch span');
+  const switchBtn = form.querySelector('.auth-switch button');
   const buttons = form.querySelectorAll('button');
+  let mode = 'login';
+
+  const setMode = (next) => {
+    mode = next;
+    const signup = mode === 'signup';
+    form.dataset.mode = mode;
+    form.querySelectorAll('.auth-tabs button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.mode === mode)));
+    title.textContent = signup ? '회원가입' : '로그인';
+    sub.textContent = signup ? '이메일과 비밀번호를 정해 새 계정을 만듭니다.' : '';
+    submit.textContent = signup ? '가입하기' : '로그인';
+    form.password.autocomplete = signup ? 'new-password' : 'current-password';
+    form.password2.hidden = !signup;
+    form.password2.required = signup;
+    switchText.textContent = signup ? '이미 계정이 있나요?' : '처음이신가요?';
+    switchBtn.textContent = signup ? '로그인' : '회원가입';
+    message.className = 'message';
+    message.textContent = '';
+    form.email.focus();
+  };
+  form.querySelectorAll('.auth-tabs button').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
+  switchBtn.addEventListener('click', () => setMode(mode === 'signup' ? 'login' : 'signup'));
+
   // 누르는 동안 버튼을 잠가 두 번 눌러 메일 제한에 걸리지 않게 합니다
   const busy = (on, text = '') => {
     buttons.forEach((b) => (b.disabled = on));
@@ -68,30 +99,40 @@ export function renderAuthForm(container) {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    busy(true, '로그인 중…');
-    try {
-      await signIn(...values());
-      busy(false);
-    } catch (err) {
-      busy(false, '로그인 실패: ' + authErrorText(err));
+    const email = form.email.value.trim();
+    const password = form.password.value;
+    if (mode === 'login') {
+      busy(true, '로그인 중…');
+      try {
+        await signIn(email, password);
+        busy(false);
+      } catch (err) {
+        busy(false, '로그인 실패: ' + authErrorText(err));
+      }
+      return;
     }
-  });
-
-  form.querySelector('[data-action="signup"]').addEventListener('click', async () => {
-    if (!form.reportValidity()) return;
-    const [email] = values();
+    if (password !== form.password2.value) {
+      message.className = 'message';
+      message.textContent = '비밀번호 두 칸이 서로 다릅니다.';
+      form.password2.focus();
+      return;
+    }
     busy(true, '가입 중…');
     try {
-      const { needsConfirm } = await signUp(...values());
+      const { needsConfirm } = await signUp(email, password);
       busy(false);
       if (needsConfirm) {
+        setMode('login');
+        form.email.value = email;
         message.classList.add('ok');
-        message.textContent = `가입 신청 완료! ${email} 메일함(스팸함도)에서 인증 링크를 누른 뒤 로그인해 주세요.`;
+        message.textContent = `가입 신청 완료! ${email} 메일함(스팸함도)에서 인증 링크를 누른 뒤 여기서 로그인해 주세요.`;
       }
     } catch (err) {
       busy(false, '회원가입 실패: ' + authErrorText(err));
     }
   });
+
+  setMode('login');
 }
 
 // 할 일 목록: 추가(마감일 선택), 완료 체크, 삭제
