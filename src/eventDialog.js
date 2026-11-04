@@ -1,4 +1,5 @@
-import { addEvent, addEvents, updateEvent, deleteEvent, setTimetableColor, listEventsBetween } from './shared/api.js';
+import { addEvent, addEvents, updateEvent, deleteEvent, setTimetableColor, listEventsBetween, getQuarterSetting } from './shared/api.js';
+import { quarterRange } from './shared/quarterPlan.js';
 import { isTimetable, TIMETABLE_MEMO, QUARTER, weeklyRepeats } from './shared/timetable.js';
 import { toDateKey, toTimeKey, fromKeys, addDays, parseTime } from './shared/dates.js';
 import { EVENT_COLORS, DEFAULT_COLOR } from './colors.js';
@@ -10,7 +11,7 @@ dialog.innerHTML = `
     <input name="title" class="title-input" placeholder="제목 추가" maxlength="200" required autocomplete="off" />
     <div class="checks">
       <label class="check"><input name="allDay" type="checkbox" /> 하루 종일</label>
-      <label class="check" title="체크하고 저장하면 이번 쿼터(10/19~12/18) 동안 매주 같은 시간에 반복됩니다. 수업 시간표는 월 보기에서 숨겨지고, 지나도 흐려지지 않으며, 색을 바꾸면 같은 수업 전체가 바뀝니다"><input name="timetable" type="checkbox" /> 수업 시간표</label>
+      <label class="check" title="체크하고 저장하면 이번 쿼터 동안 매주 같은 시간에 반복됩니다. 수업 시간표는 월 보기에서 숨겨지고, 지나도 흐려지지 않으며, 색을 바꾸면 같은 수업 전체가 바뀝니다"><input name="timetable" type="checkbox" /> 수업 시간표</label>
     </div>
     <div class="when">
       <input name="startDate" type="date" required aria-label="시작 날짜" />
@@ -157,9 +158,12 @@ form.addEventListener('submit', async (e) => {
 
 async function repeatForQuarter(fields) {
   // 이미 같은 이름·같은 시작 시간의 수업이 있으면 두 번 넣지 않습니다
-  const existing = await listEventsBetween(fromKeys(QUARTER.start), addDays(fromKeys(QUARTER.end), 1));
+  // 쿼터 기간은 「쿼터 시간표 등록」에서 정한 시작일을 따르고, 정한 적이 없으면 기본값을 씁니다
+  const setting = await getQuarterSetting().catch(() => null);
+  const quarter = setting ? quarterRange(setting.start, setting.weeks) : QUARTER;
+  const existing = await listEventsBetween(fromKeys(quarter.start), addDays(fromKeys(quarter.end), 1));
   const taken = new Set(existing.filter((row) => row.title === fields.title).map((row) => new Date(row.start_at).getTime()));
-  const copies = weeklyRepeats(fields.startAt, fields.endAt)
+  const copies = weeklyRepeats(fields.startAt, fields.endAt, quarter)
     .filter(({ startAt }) => !taken.has(startAt.getTime()))
     .map(({ startAt, endAt }) => ({ ...fields, startAt, endAt, memo: null }));
   await addEvents(copies);

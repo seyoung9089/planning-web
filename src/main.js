@@ -5,7 +5,9 @@ import { onAuthChange, signOut, subscribeChanges } from './shared/api.js';
 import { renderAuthForm, createTodoList } from './shared/ui.js';
 import { createCalendar } from './calendar.js';
 import { createMiniCalendar } from './miniCalendar.js';
+import { fromKeys } from './shared/dates.js';
 import { openInstallGuide } from './installGuide.js';
+import { openQuarterDialog } from './quarterDialog.js';
 
 const app = document.getElementById('app');
 let unsubscribe = null;
@@ -37,6 +39,7 @@ onAuthChange((session) => {
         <h2>할 일</h2>
         <div id="todo-list"></div>
       </section>
+      <button id="quarter" class="install-btn">🗓 쿼터 시간표 등록</button>
       <button id="install" class="install-btn">🧩 어느 화면에서든 쓰는 패널 설치</button>
       <footer class="account">
         <span class="email"></span>
@@ -72,6 +75,12 @@ onAuthChange((session) => {
   app.querySelector('.email').textContent = session.user.email;
   app.querySelector('#logout').addEventListener('click', signOut);
   app.querySelector('#install').addEventListener('click', openInstallGuide);
+  app.querySelector('#quarter').addEventListener('click', () =>
+    openQuarterDialog((range) => {
+      calendar.refresh();
+      calendar.gotoDate(fromKeys(range.start));
+    }),
+  );
 
   const title = document.getElementById('cal-title');
   const viewButtons = app.querySelectorAll('[data-view]');
