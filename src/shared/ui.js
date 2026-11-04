@@ -21,6 +21,26 @@ function scheduleText(todo) {
 const CLOCK_ICON =
   '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.5V8l2.5 1.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
 
+// Supabase 로그인 오류를 알아보기 쉬운 한국어로 바꿉니다
+export function authErrorText(err) {
+  const code = err?.code || '';
+  const msg = err?.message || '';
+  if (code === 'over_email_send_rate_limit' || err?.status === 429 || /rate limit|after \d+ seconds/i.test(msg)) {
+    const sec = msg.match(/after (\d+) seconds/)?.[1];
+    return sec
+      ? `너무 자주 눌렀습니다. ${sec}초 뒤에 다시 눌러 주세요. (이미 보낸 인증 메일이 있다면 그 메일의 링크를 누르면 됩니다)`
+      : '인증 메일을 너무 많이 보냈습니다. 잠시 뒤에 다시 해 주세요. (이미 받은 메일이 있다면 그 링크를 누르면 됩니다)';
+  }
+  if (code === 'user_already_exists' || /already registered/i.test(msg)) return '이미 가입된 이메일입니다. 「로그인」을 눌러 주세요.';
+  if (code === 'email_not_confirmed' || /not confirmed/i.test(msg)) return '아직 이메일 인증을 안 했습니다. 메일함(스팸함 포함)에서 인증 링크를 눌러 주세요.';
+  if (code === 'invalid_credentials' || /invalid login/i.test(msg)) return '이메일 또는 비밀번호가 틀렸습니다. 처음이라면 「회원가입」을 눌러 주세요.';
+  if (code === 'weak_password' || /password/i.test(msg)) return '비밀번호는 6자 이상으로 해 주세요.';
+  if (code === 'email_address_invalid' || /email.*invalid|invalid.*email/i.test(msg)) return '이메일 주소를 다시 확인해 주세요.';
+  if (code === 'signup_disabled') return '지금은 회원가입이 꺼져 있습니다.';
+  if (/fetch|network/i.test(msg)) return '인터넷 연결을 확인해 주세요.';
+  return msg;
+}
+
 // 로그인 폼: 사이트와 사이드 패널이 같이 씁니다
 export function renderAuthForm(container) {
   container.innerHTML = `
@@ -37,25 +57,39 @@ export function renderAuthForm(container) {
   const form = container.querySelector('form');
   const message = form.querySelector('.message');
   const values = () => [form.email.value.trim(), form.password.value];
+  const buttons = form.querySelectorAll('button');
+  // 누르는 동안 버튼을 잠가 두 번 눌러 메일 제한에 걸리지 않게 합니다
+  const busy = (on, text = '') => {
+    buttons.forEach((b) => (b.disabled = on));
+    message.classList.remove('ok');
+    message.classList.toggle('info', on);
+    message.textContent = text;
+  };
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    message.textContent = '';
+    busy(true, '로그인 중…');
     try {
       await signIn(...values());
+      busy(false);
     } catch (err) {
-      message.textContent = '로그인 실패: ' + err.message;
+      busy(false, '로그인 실패: ' + authErrorText(err));
     }
   });
 
   form.querySelector('[data-action="signup"]').addEventListener('click', async () => {
     if (!form.reportValidity()) return;
-    message.textContent = '';
+    const [email] = values();
+    busy(true, '가입 중…');
     try {
       const { needsConfirm } = await signUp(...values());
-      if (needsConfirm) message.textContent = '메일함에서 인증 링크를 눌러 주세요.';
+      busy(false);
+      if (needsConfirm) {
+        message.classList.add('ok');
+        message.textContent = `가입 신청 완료! ${email} 메일함(스팸함도)에서 인증 링크를 누른 뒤 로그인해 주세요.`;
+      }
     } catch (err) {
-      message.textContent = '회원가입 실패: ' + err.message;
+      busy(false, '회원가입 실패: ' + authErrorText(err));
     }
   });
 }
