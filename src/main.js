@@ -34,11 +34,11 @@ onAuthChange((session) => {
       <div class="brand-row">
         <span class="brand">📅 planning-web</span>
       </div>
-      <div id="mini-calendar"></div>
       <section class="side-section">
         <h2>할 일</h2>
         <div id="todo-list"></div>
       </section>
+      <div id="mini-calendar"></div>
       <button id="quarter" class="install-btn">🗓 쿼터 시간표 등록</button>
       <button id="install" class="install-btn">🧩 어느 화면에서든 쓰는 패널 설치</button>
       <footer class="account">

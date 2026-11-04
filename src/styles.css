@@ -2,55 +2,63 @@
 #app.logged-out { max-width: 400px; margin: 10vh auto 0; padding: 0 16px; }
 #app.logged-out .brand { font-size: 22px; text-align: center; }
 
-.shell { display: grid; grid-template-columns: 264px 1fr; height: 100vh; }
+.shell { display: grid; grid-template-columns: 340px 1fr; height: 100vh; }
 
-.sidebar { display: flex; flex-direction: column; gap: 18px; padding: 14px 14px 10px;
-  background: var(--sidebar); border-right: 1px solid var(--border); min-height: 0; overflow-y: auto; }
-.brand-row { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px; }
+.sidebar { display: flex; flex-direction: column; gap: 18px; padding: 16px 18px 10px;
+  background: var(--bg); border-right: 1px solid var(--border); min-height: 0; overflow-y: auto; }
+.brand-row { display: flex; align-items: center; justify-content: space-between; padding: 2px 0 12px; border-bottom: 1px solid var(--border); }
 .brand { font-size: 15px; font-weight: 700; }
-.side-section h2 { font-size: 12px; font-weight: 600; color: var(--muted); margin: 0 4px 8px; letter-spacing: 0.02em; }
-.side-section { flex: 1; min-height: 120px; overflow-y: auto; }
+/* 할 일이 맨 위에서 남는 높이를 다 씁니다. 제목 아래 진한 선으로 구역을 나눕니다 */
+.side-section h2 { display: flex; align-items: baseline; justify-content: space-between; font-size: 16px; font-weight: 700;
+  color: var(--text); margin: 0 0 10px; padding-bottom: 6px; border-bottom: 1.5px solid var(--text); }
+.side-section { flex: 1; min-height: 220px; overflow-y: auto; }
 .account { display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 8px 4px 0; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); }
 .account .email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-button.ghost { border-color: transparent; background: none; padding: 4px 8px; font-size: 12px; color: var(--muted); }
+button.ghost { border-color: transparent; background: none; padding: 4px 8px; font-size: 12px; color: var(--muted); border-radius: var(--radius); }
 button.ghost:hover { background: var(--hover); color: var(--text); }
 button.icon-btn { border: none; background: none; padding: 2px 8px; font-size: 20px; line-height: 1; color: var(--muted); }
 button.icon-btn:hover { background: var(--hover); color: var(--text); }
 
-/* 사이드바 할 일 목록은 조금 더 촘촘하게 */
-.sidebar .todo-add input[name='title'] { background: var(--bg); padding: 8px 10px; font-size: 14px; }
-.sidebar .todos li { padding: 5px 6px; font-size: 14px; }
+/* 사이드바 할 일 목록: 글자를 키워 한눈에 보이게 */
+.sidebar .todo-add input[name='title'] { background: var(--bg); padding: 9px 10px; font-size: 15px; border-color: var(--border-strong); }
+.sidebar .todos { margin-top: 6px; border-top: 1px solid var(--border); }
+.sidebar .todos li { padding: 9px 4px; font-size: 15px; }
+.sidebar .todos li .title { font-weight: 500; }
+.sidebar .todos li.done .title { font-weight: 400; }
+.sidebar .todos li:last-child { border-bottom: none; }
 
 /* ---- 미니 달력 ---- */
-.mini-cal { padding: 0 2px; }
+.mini-cal { padding: 12px 0 0; border-top: 1px solid var(--border); }
 .mini-head { display: flex; align-items: center; justify-content: space-between; padding: 0 2px 6px; font-size: 14px; }
 .mini-grid { display: grid; grid-template-columns: repeat(7, 1fr); row-gap: 2px; text-align: center; }
 .mini-grid .dow { font-size: 11px; color: var(--faint); padding: 2px 0 4px; }
 .mini-grid .day { border: none; background: none; padding: 0; height: 28px; font-size: 12.5px; color: var(--text);
   border-radius: 0; font-variant-numeric: tabular-nums; }
-.mini-grid .day:hover { background: var(--hover); border-radius: 6px; }
+.mini-grid .day:hover { background: var(--hover); border-radius: 2px; }
 .mini-grid .day.other { color: var(--faint); }
 .mini-grid .day.sun:not(.other) { color: var(--today); }
 .mini-grid .day.in-range { background: var(--hover); }
 .mini-grid .day.today { color: #fff; position: relative; z-index: 0; font-weight: 700; }
 .mini-grid .day.today::before { content: ''; position: absolute; inset: 2px 50%; translate: -12px 0; width: 24px;
-  border-radius: 999px; background: var(--today); z-index: -1; }
+  border-radius: 3px; background: var(--today); z-index: -1; }
 
 /* ---- 오른쪽 캘린더 ---- */
 .cal-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-.cal-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px 10px; }
+.cal-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px 12px; border-bottom: 1px solid var(--border); }
 .cal-header h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; }
 .cal-controls { display: flex; align-items: center; gap: 6px; }
 .cal-controls > button:not(.icon-btn) { padding: 5px 12px; font-size: 14px; }
-.segmented { display: flex; padding: 2px; background: var(--surface); border-radius: 8px; }
-.segmented button { border: none; background: none; padding: 4px 14px; font-size: 14px; color: var(--muted); border-radius: 6px; }
-.segmented button.active { background: var(--bg); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
+/* 월·주·일: 선으로 나눈 버튼 묶음, 고른 것은 진하게 칠합니다 */
+.segmented { display: flex; border: 1px solid var(--border-strong); border-radius: var(--radius); overflow: hidden; }
+.segmented button { border: none; border-radius: 0; background: none; padding: 4px 14px; font-size: 14px; color: var(--muted); }
+.segmented button + button { border-left: 1px solid var(--border-strong); }
+.segmented button.active { background: var(--text); color: var(--bg); font-weight: 600; }
 #calendar { flex: 1; min-height: 0; }
 /* 전체 시간 버튼: 꺼져 있으면 옅게, 켜면 진하게 */
 .cal-controls > button.ghost-toggle { border-color: transparent; background: none; color: var(--muted); }
 .cal-controls > button.ghost-toggle:hover { background: var(--hover); color: var(--text); }
-.cal-controls > button.ghost-toggle.active { background: var(--surface); color: var(--text); font-weight: 600; }
+.cal-controls > button.ghost-toggle.active { background: none; border-color: var(--text); color: var(--text); font-weight: 600; }
 .snap-select { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
 .snap-select[hidden] { display: none; }
 .snap-select select { font: inherit; font-size: 14px; color: var(--text); background: var(--bg);
@@ -93,7 +101,7 @@ button.icon-btn:hover { background: var(--hover); color: var(--text); }
 .fc .fc-col-header-cell-cushion .num { margin-left: 4px; font-size: 14px; color: var(--text); }
 .fc .fc-day-today .fc-col-header-cell-cushion .dow { color: var(--today); font-weight: 600; }
 .fc .fc-day-today .fc-col-header-cell-cushion .num { background: var(--today); color: #fff; font-weight: 700;
-  padding: 1px 6px; border-radius: 6px; }
+  padding: 1px 6px; border-radius: 3px; }
 .fc .fc-day-sun .fc-col-header-cell-cushion .dow { color: var(--today); }
 
 /* 월 보기 날짜 숫자 */
@@ -102,7 +110,7 @@ button.icon-btn:hover { background: var(--hover); color: var(--text); }
 .fc .fc-day-other .fc-daygrid-day-number { color: var(--faint); }
 .fc .fc-day-sun .fc-daygrid-day-number { color: var(--today); }
 .fc .fc-timegrid .fc-daygrid-day-top { display: none; }
-.fc .fc-dayGridMonth-view .fc-day-today .fc-daygrid-day-number { background: var(--today); color: #fff; font-weight: 700; border-radius: 6px; }
+.fc .fc-dayGridMonth-view .fc-day-today .fc-daygrid-day-number { background: var(--today); color: #fff; font-weight: 700; border-radius: 3px; }
 .fc .fc-daygrid-more-link { font-size: 12px; color: var(--muted); }
 
 /* 현재 시각 */
@@ -112,7 +120,7 @@ button.icon-btn:hover { background: var(--hover); color: var(--text); }
   padding: 1px 4px; border-radius: 4px; font-variant-numeric: tabular-nums; }
 
 /* 일정: 연한 배경 + 진한 왼쪽 선 + 진한 글씨 */
-.fc .fc-event { cursor: pointer; border-radius: 4px; }
+.fc .fc-event { cursor: pointer; border-radius: 2px; }
 .fc .ev { --ev: #2383e2; background: color-mix(in srgb, var(--ev) 16%, var(--bg)); border: none;
   border-left: 3px solid var(--ev); box-shadow: none; }
 .fc .ev:hover { background: color-mix(in srgb, var(--ev) 24%, var(--bg)); }
@@ -135,7 +143,7 @@ button.icon-btn:hover { background: var(--hover); color: var(--text); }
 .fc .fc-daygrid-event.ev .ev-memo { display: none; }
 
 /* 할 일은 테두리만 있는 칸으로 일정과 구분합니다 */
-.fc .todo-item { background: var(--bg); border: 1.5px solid var(--border-strong); }
+.fc .todo-item { background: var(--bg); border: 1px solid var(--muted); }
 .fc .todo-item .fc-event-main { color: var(--text); font-weight: 500; padding: 1px 4px; }
 .fc .todo-item.scheduled { border-style: dashed; border-color: var(--primary); background: color-mix(in srgb, var(--primary) 5%, var(--bg)); }
 .fc .todo-item.scheduled .fc-event-time { color: var(--muted); font-size: 11px; }
@@ -147,7 +155,7 @@ button.icon-btn:hover { background: var(--hover); color: var(--text); }
 .fc .todo-item.top { border-left: 3px solid #f4511e; }
 
 /* ---- 일정 추가/수정 창 ---- */
-.event-dialog { border: none; border-radius: 12px; padding: 20px; width: min(440px, calc(100vw - 32px));
+.event-dialog { border: 1px solid var(--border-strong); border-radius: 6px; padding: 20px; width: min(440px, calc(100vw - 32px));
   background: var(--bg); color: var(--text); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28); }
 .event-dialog::backdrop { background: rgba(0, 0, 0, 0.25); }
 .event-dialog form { display: grid; gap: 12px; }
@@ -178,8 +186,9 @@ button.icon-btn:hover { background: var(--hover); color: var(--text); }
 
 /* ---- 확장 설치 안내 ---- */
 .install-btn { width: 100%; text-align: left; font-size: 13px; padding: 8px 10px; background: var(--bg);
-  border: 1px dashed var(--border-strong); color: var(--text); }
-.install-dialog { border: none; border-radius: 12px; padding: 24px; width: min(520px, calc(100vw - 32px));
+  border: 1px solid var(--border-strong); color: var(--text); }
+.install-btn:hover { border-color: var(--text); background: var(--bg); }
+.install-dialog { border: 1px solid var(--border-strong); border-radius: 6px; padding: 24px; width: min(520px, calc(100vw - 32px));
   background: var(--bg); color: var(--text); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28); }
 .install-dialog::backdrop { background: rgba(0, 0, 0, 0.25); }
 .install-dialog h2 { font-size: 18px; }
@@ -195,7 +204,7 @@ button.icon-btn:hover { background: var(--hover); color: var(--text); }
 
 /* ---- 쿼터 시간표 등록 창 ---- */
 #quarter + #install { margin-top: -12px; }
-.quarter-dialog { border: none; border-radius: 12px; padding: 22px; width: min(1100px, calc(100vw - 32px));
+.quarter-dialog { border: 1px solid var(--border-strong); border-radius: 6px; padding: 22px; width: min(1100px, calc(100vw - 32px));
   max-height: calc(100vh - 32px); background: var(--bg); color: var(--text); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28); }
 .quarter-dialog::backdrop { background: rgba(0, 0, 0, 0.3); }
 .quarter-dialog form { display: flex; flex-direction: column; gap: 12px; height: calc(100vh - 76px); }
@@ -233,12 +242,12 @@ button.icon-btn:hover { background: var(--hover); color: var(--text); }
 .q-extras ul { gap: 6px 18px; }
 .q-extras li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .q-colors .chip { --c: transparent; display: inline-flex; align-items: center; gap: 6px; max-width: 220px; padding: 3px 10px 3px 6px;
-  border: 1px solid var(--border); border-radius: 999px; background: color-mix(in srgb, var(--c) 12%, var(--bg)); font-size: 13px; cursor: pointer; }
+  border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--bg); font-size: 13px; cursor: pointer; }
 .q-colors .chip i { flex: none; width: 12px; height: 12px; border-radius: 999px; background: var(--c); }
 .q-colors .chip .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .q-colors .chip:hover { border-color: var(--border-strong); }
 .q-pop { position: absolute; z-index: 5; display: flex; gap: 6px; padding: 8px; background: var(--bg);
-  border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18); }
+  border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12); }
 .q-pop[hidden] { display: none; }
 .q-pop .dot { width: 22px; height: 22px; min-width: 0; padding: 0; border: none; border-radius: 999px; cursor: pointer; }
 .q-pop .dot.on { outline: 2px solid var(--text); outline-offset: 2px; }
