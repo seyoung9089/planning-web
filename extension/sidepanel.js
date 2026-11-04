@@ -69,7 +69,7 @@ function renderPanel() {
   function showPreview() {
     const text = form.text.value.trim();
     if (!text) {
-      preview.innerHTML = '<span class="hint">시간을 쓰면 일정, 안 쓰면 할 일(「화요일 10교시」처럼 교시도 돼요). Enter로 추가</span>';
+      preview.innerHTML = '<span class="hint">시간을 쓰면 일정, 안 쓰면 할 일(「화요일 10교시」「점심시간」처럼 교시도 돼요). Enter로 추가</span>';
       return;
     }
     const parsed = parseQuick(text);

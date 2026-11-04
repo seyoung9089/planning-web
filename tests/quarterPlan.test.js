@@ -35,13 +35,16 @@ test('지난 수업으로 표를 채우고, 자주 있던 수업이 이기며, �
     ev('e', '2026-10-28', '08:30', '09:50', '예배'),
     ev('f', '2026-10-20', '18:10', '18:55', '저녁'),
     ev('g', '2026-10-27', '18:10', '18:55', '저녁'),
+    ev('h', '2026-10-20', '12:15', '13:05', '멘토링'),
+    ev('i', '2026-10-27', '12:15', '13:05', '멘토링'),
   ];
   const { cells, extras } = gridFromEvents(rows);
   assert.equal(cells[1][row('p3')], '일주일에하나씩');
   assert.equal(cells[1][row('p4')], '일주일에하나씩');
   assert.equal(cells[3][row('morning')], '예배');
   assert.equal(cells[3][row('p1')], '예배');
-  assert.deepEqual(extras, [{ dow: 2, start: '18:10', end: '18:55', title: '저녁', color: '#3f51b5' }]);
+  assert.equal(cells[2][row('dinner')], '저녁');
+  assert.deepEqual(extras, [{ dow: 2, start: '12:15', end: '13:05', title: '멘토링', color: '#3f51b5' }]);
 });
 
 test('수업 틀을 쿼터 동안 매주 펼친다 (시작일이 수요일이어도 월요일 수업은 다음 월요일부터)', () => {

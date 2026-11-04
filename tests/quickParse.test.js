@@ -117,3 +117,18 @@ test('할 일 칸: "오늘 10교시", "화요일 10교시"는 그 시간 일정,
   assert.equal(q.kind, 'todo');
   assert.equal(hm(q.schedule.startAt), '11/5 17:20');
 });
+
+test('점심시간·저녁시간도 그 시간 일정으로', async () => {
+  const { parseEvening, parseQuick, parseDueInput } = await import('../src/shared/quickParse.js');
+  const now = new Date(2026, 10, 4, 9, 0); // 11/4(수) 오전 9시
+  const hm = (d) => `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  let r = parseEvening('점심시간 단어 외우기', now);
+  assert.equal(r.title, '단어 외우기');
+  assert.equal(`${hm(r.schedule.startAt)}-${hm(r.schedule.endAt)}`, '11/4 12:10-11/4 13:10');
+  r = parseEvening('내일 저녁시간 독서', now);
+  assert.equal(r.title, '독서');
+  assert.equal(`${hm(r.schedule.startAt)}-${hm(r.schedule.endAt)}`, '11/5 18:10-11/5 18:55');
+  assert.equal(hm(parseQuick('금요일 저녁 시간 회의', now).schedule.startAt), '11/6 18:10');
+  assert.equal(parseQuick('저녁 7시 학원', now).kind, 'event'); // "저녁 7시"는 그대로 시각
+  assert.equal(hm(parseDueInput('목 저녁시간', now).schedule.startAt), '11/5 18:10');
+});
