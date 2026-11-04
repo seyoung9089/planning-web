@@ -55,6 +55,7 @@ button.icon:hover { color: var(--danger); }
 .auth-sub { margin: 0; color: var(--muted); font-size: 13px; }
 .auth-sub:empty { display: none; }
 .auth-switch { margin: 0; font-size: 13px; color: var(--muted); text-align: center; }
+.auth .forgot { justify-self: center; border: none; background: none; padding: 0; color: var(--muted); font-size: 13px; text-decoration: underline; cursor: pointer; }
 .auth-switch .link { border: none; background: none; padding: 0; color: var(--primary); font-weight: 600; text-decoration: underline; cursor: pointer; }
 
 /* 할 일 목록: 둥근 칸 대신 줄마다 가는 선으로 나눕니다 */

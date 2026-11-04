@@ -1,8 +1,8 @@
 import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import './shared/base.css';
 import './styles.css';
-import { onAuthChange, signOut, subscribeChanges } from './shared/api.js';
-import { renderAuthForm, createTodoList } from './shared/ui.js';
+import { onAuthChange, signOut, subscribeChanges, RECOVERY_IN_URL, URL_AUTH_ERROR } from './shared/api.js';
+import { renderAuthForm, renderNewPasswordForm, createTodoList } from './shared/ui.js';
 import { createCalendar } from './calendar.js';
 import { createMiniCalendar } from './miniCalendar.js';
 import { fromKeys } from './shared/dates.js';
@@ -12,8 +12,29 @@ import { openQuarterDialog } from './quarterDialog.js';
 const app = document.getElementById('app');
 let unsubscribe = null;
 let currentUserId; // 처음엔 undefined여야 "로그아웃 상태"도 한 번 그려집니다
+// 비밀번호 재설정 링크로 들어오면 Supabase가 로그인까지 시켜 주지만, 새 비밀번호를 정하기 전에는 사이트를 보여 주지 않습니다
+let recovering = RECOVERY_IN_URL;
 
-onAuthChange((session) => {
+onAuthChange(function render(session, event) {
+  if (event === 'PASSWORD_RECOVERY') recovering = true;
+  if (recovering && session) {
+    if (currentUserId === 'recovery') return;
+    currentUserId = 'recovery';
+    unsubscribe?.();
+    unsubscribe = null;
+    app.className = 'logged-out';
+    app.innerHTML = '<h1 class="brand">📅 planning-web</h1><div id="auth"></div>';
+    renderNewPasswordForm(document.getElementById('auth'), {
+      email: session.user.email,
+      onDone: () => {
+        recovering = false;
+        currentUserId = undefined;
+        render(session, 'PASSWORD_UPDATED');
+      },
+    });
+    return;
+  }
+
   const userId = session?.user.id ?? null;
   if (userId === currentUserId) return; // 토큰 갱신 같은 이벤트에서는 다시 그리지 않습니다
   currentUserId = userId;
@@ -24,7 +45,7 @@ onAuthChange((session) => {
   if (!session) {
     app.className = 'logged-out';
     app.innerHTML = '<h1 class="brand">📅 planning-web</h1><div id="auth"></div>';
-    renderAuthForm(document.getElementById('auth'));
+    renderAuthForm(document.getElementById('auth'), { notice: URL_AUTH_ERROR });
     return;
   }
 

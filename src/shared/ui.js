@@ -1,4 +1,4 @@
-import { signIn, signUp, listTodos, addTodo, setTodoDone, deleteTodo, addWeeklyEvents } from './api.js';
+import { signIn, signUp, sendPasswordReset, updatePassword, listTodos, addTodo, setTodoDone, deleteTodo, addWeeklyEvents } from './api.js';
 import { toDateKey, addDays, dueLabel, fromKeys } from './dates.js';
 import { periodLabel } from './timetable.js';
 import { openPeriodPicker } from './schedulePicker.js';
@@ -36,14 +36,17 @@ export function authErrorText(err) {
   if (code === 'invalid_credentials' || /invalid login/i.test(msg)) return '이메일 또는 비밀번호가 틀렸습니다. 처음이라면 「회원가입」을 눌러 주세요.';
   if (code === 'weak_password' || /password/i.test(msg)) return '비밀번호는 6자 이상으로 해 주세요.';
   if (code === 'email_address_invalid' || /email.*invalid|invalid.*email/i.test(msg)) return '이메일 주소를 다시 확인해 주세요.';
+  if (code === 'same_password') return '예전과 다른 비밀번호로 정해 주세요.';
+  if (code === 'otp_expired') return '메일 링크가 만료됐거나 이미 사용한 링크입니다. 「비밀번호를 잊으셨나요?」에서 메일을 다시 받아 주세요.';
   if (code === 'signup_disabled') return '지금은 회원가입이 꺼져 있습니다.';
   if (/fetch|network/i.test(msg)) return '인터넷 연결을 확인해 주세요.';
   return msg;
 }
 
 // 로그인·회원가입 폼: 사이트와 사이드 패널이 같이 씁니다
-// 위 탭으로 「로그인」과 「회원가입」 화면을 바꿉니다
-export function renderAuthForm(container) {
+// 위 탭으로 「로그인」과 「회원가입」 화면을 바꿉니다. 「비밀번호를 잊으셨나요?」를 누르면 재설정 메일 화면이 됩니다
+// notice: 처음에 보여 줄 오류 코드 (예: 만료된 메일 링크로 들어왔을 때 'otp_expired')
+export function renderAuthForm(container, { notice = null } = {}) {
   container.innerHTML = `
     <form class="auth" data-mode="login">
       <div class="auth-tabs" role="tablist">
@@ -56,6 +59,7 @@ export function renderAuthForm(container) {
       <input name="password" type="password" placeholder="비밀번호 (6자 이상)" autocomplete="current-password" minlength="6" required />
       <input name="password2" type="password" placeholder="비밀번호 한 번 더" autocomplete="new-password" minlength="6" hidden />
       <button type="submit" class="primary">로그인</button>
+      <button type="button" class="link forgot">비밀번호를 잊으셨나요?</button>
       <p class="message" role="status"></p>
       <p class="auth-switch"><span></span> <button type="button" class="link"></button></p>
     </form>`;
@@ -66,28 +70,38 @@ export function renderAuthForm(container) {
   const message = form.querySelector('.message');
   const switchText = form.querySelector('.auth-switch span');
   const switchBtn = form.querySelector('.auth-switch button');
+  const forgot = form.querySelector('.forgot');
   const buttons = form.querySelectorAll('button');
   let mode = 'login';
 
   const setMode = (next) => {
     mode = next;
     const signup = mode === 'signup';
+    const reset = mode === 'reset';
     form.dataset.mode = mode;
     form.querySelectorAll('.auth-tabs button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.mode === mode)));
-    title.textContent = signup ? '회원가입' : '로그인';
-    sub.textContent = signup ? '이메일과 비밀번호를 정해 새 계정을 만듭니다.' : '';
-    submit.textContent = signup ? '가입하기' : '로그인';
+    title.textContent = signup ? '회원가입' : reset ? '비밀번호 재설정' : '로그인';
+    sub.textContent = signup
+      ? '이메일과 비밀번호를 정해 새 계정을 만듭니다.'
+      : reset
+        ? '가입한 이메일을 쓰면 재설정 메일을 보내 드립니다. 메일의 링크를 누르면 새 비밀번호를 정하는 화면이 뜹니다.'
+        : '';
+    submit.textContent = signup ? '가입하기' : reset ? '재설정 메일 보내기' : '로그인';
+    form.password.hidden = reset;
+    form.password.required = !reset;
     form.password.autocomplete = signup ? 'new-password' : 'current-password';
     form.password2.hidden = !signup;
     form.password2.required = signup;
-    switchText.textContent = signup ? '이미 계정이 있나요?' : '처음이신가요?';
-    switchBtn.textContent = signup ? '로그인' : '회원가입';
+    forgot.hidden = mode !== 'login';
+    switchText.textContent = signup ? '이미 계정이 있나요?' : reset ? '비밀번호가 기억났나요?' : '처음이신가요?';
+    switchBtn.textContent = signup || reset ? '로그인' : '회원가입';
     message.className = 'message';
     message.textContent = '';
     form.email.focus();
   };
+  forgot.addEventListener('click', () => setMode('reset'));
   form.querySelectorAll('.auth-tabs button').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
-  switchBtn.addEventListener('click', () => setMode(mode === 'signup' ? 'login' : 'signup'));
+  switchBtn.addEventListener('click', () => setMode(mode === 'login' ? 'signup' : 'login'));
 
   // 누르는 동안 버튼을 잠가 두 번 눌러 메일 제한에 걸리지 않게 합니다
   const busy = (on, text = '') => {
@@ -101,6 +115,18 @@ export function renderAuthForm(container) {
     e.preventDefault();
     const email = form.email.value.trim();
     const password = form.password.value;
+    if (mode === 'reset') {
+      busy(true, '메일 보내는 중…');
+      try {
+        await sendPasswordReset(email);
+        busy(false);
+        message.classList.add('ok');
+        message.textContent = `${email} 메일함(스팸함도)에 재설정 메일을 보냈습니다. 메일의 링크를 누르면 새 비밀번호를 정할 수 있습니다.`;
+      } catch (err) {
+        busy(false, '메일 보내기 실패: ' + authErrorText(err));
+      }
+      return;
+    }
     if (mode === 'login') {
       busy(true, '로그인 중…');
       try {
@@ -133,6 +159,48 @@ export function renderAuthForm(container) {
   });
 
   setMode('login');
+  if (notice) message.textContent = authErrorText({ code: notice });
+}
+
+// 비밀번호 재설정 링크로 들어왔을 때: 새 비밀번호를 정해야 사이트로 들어갑니다
+export function renderNewPasswordForm(container, { email = '', onDone } = {}) {
+  container.innerHTML = `
+    <form class="auth">
+      <h2>새 비밀번호 정하기</h2>
+      <p class="auth-sub"></p>
+      <input name="password" type="password" placeholder="새 비밀번호 (6자 이상)" autocomplete="new-password" minlength="6" required />
+      <input name="password2" type="password" placeholder="새 비밀번호 한 번 더" autocomplete="new-password" minlength="6" required />
+      <button type="submit" class="primary">비밀번호 바꾸기</button>
+      <p class="message" role="status"></p>
+    </form>`;
+  const form = container.querySelector('form');
+  const message = form.querySelector('.message');
+  const submit = form.querySelector('button');
+  form.querySelector('.auth-sub').textContent = `${email} 계정의 비밀번호를 새로 정합니다. 앞으로는 이 비밀번호로 로그인합니다.`;
+  form.password.focus();
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    message.className = 'message';
+    if (form.password.value !== form.password2.value) {
+      message.textContent = '비밀번호 두 칸이 서로 다릅니다.';
+      form.password2.focus();
+      return;
+    }
+    submit.disabled = true;
+    message.classList.add('info');
+    message.textContent = '바꾸는 중…';
+    try {
+      await updatePassword(form.password.value);
+      message.className = 'message ok';
+      message.textContent = '비밀번호를 바꿨습니다!';
+      setTimeout(() => onDone?.(), 800);
+    } catch (err) {
+      submit.disabled = false;
+      message.className = 'message';
+      message.textContent = '바꾸기 실패: ' + authErrorText(err);
+    }
+  });
 }
 
 // 할 일 목록: 추가(마감일 선택), 완료 체크, 삭제
