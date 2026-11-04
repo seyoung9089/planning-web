@@ -15,6 +15,13 @@ const extensionStorage = globalThis.chrome?.storage?.local
     }
   : undefined;
 
+// 메일 링크로 들어온 주소(#access_token=…&type=recovery)는 Supabase가 곧 지워 버리므로 먼저 읽어 둡니다
+const urlHash = globalThis.location ? location.hash + location.search : '';
+// 비밀번호 재설정 링크로 들어왔는지
+export const RECOVERY_IN_URL = /type=recovery/.test(urlHash);
+// 링크가 만료됐거나 이미 쓴 링크일 때의 오류 코드 (예: otp_expired)
+export const URL_AUTH_ERROR = urlHash.match(/error_code=([\w-]+)/)?.[1] ?? null;
+
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: extensionStorage ? { storage: extensionStorage } : {},
 });

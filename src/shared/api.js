@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js';
+export { RECOVERY_IN_URL, URL_AUTH_ERROR } from './supabase.js';
 import { toDateKey } from './dates.js';
 import { QUARTER, weeklyRepeats } from './timetable.js';
 import { quarterRange, DEFAULT_WEEKS } from './quarterPlan.js';
@@ -32,9 +33,22 @@ export async function signOut() {
   await supabase.auth.signOut();
 }
 
+// 비밀번호를 잊었을 때: 재설정 메일을 보냅니다. 메일 링크를 누르면 사이트의 「새 비밀번호 정하기」 화면이 뜹니다
+export async function sendPasswordReset(email) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: SITE_URL });
+  if (error) throw error;
+}
+
+// 로그인된 상태(재설정 링크로 들어온 상태 포함)에서 비밀번호를 바꿉니다
+export async function updatePassword(password) {
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) throw error;
+}
+
+// callback(session, event): event가 'PASSWORD_RECOVERY'면 재설정 링크로 들어온 것입니다
 export function onAuthChange(callback) {
-  supabase.auth.getSession().then(({ data }) => callback(data.session));
-  supabase.auth.onAuthStateChange((_event, session) => callback(session));
+  supabase.auth.getSession().then(({ data }) => callback(data.session, 'INITIAL'));
+  supabase.auth.onAuthStateChange((event, session) => callback(session, event));
 }
 
 // ---- 할 일 ----
