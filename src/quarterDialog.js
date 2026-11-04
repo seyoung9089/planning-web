@@ -27,8 +27,11 @@ dialog.innerHTML = `
     <div class="q-grid-wrap"><table class="q-grid"></table></div>
     <datalist id="q-names"></datalist>
     <section class="q-colors" hidden>
-      <h3>수업 색</h3>
+      <h3>수업 색 <small>(이름을 누르면 색을 바꿀 수 있어요)</small></h3>
       <ul></ul>
+      <div class="q-pop" role="dialog" aria-label="색 고르기" hidden>${EVENT_COLORS.map(
+        (c) => `<button type="button" class="dot" data-color="${c.value}" title="${c.name}" aria-label="${c.name}" style="background:${c.value}"></button>`,
+      ).join('')}</div>
     </section>
     <section class="q-extras" hidden>
       <h3>교시 칸에 안 맞는 반복 수업 <small>(그대로 매주 넣습니다. 빼려면 ✕)</small></h3>
@@ -117,13 +120,9 @@ function paint() {
   for (const t of titles) colors[t] ||= DEFAULT_COLOR;
   colorSection.hidden = titles.length === 0;
   colorSection.querySelector('ul').innerHTML = titles
-    .map(
-      (t, ti) => `<li><span class="name"></span><span class="dots">${EVENT_COLORS.map(
-        (c) => `<button type="button" class="dot${colors[t] === c.value ? ' on' : ''}" data-title-index="${ti}" data-color="${c.value}" title="${c.name}" style="background:${c.value}"></button>`,
-      ).join('')}</span></li>`,
-    )
+    .map((t, ti) => `<li><button type="button" class="chip" data-title-index="${ti}" style="--c:${colors[t]}"><i></i><span class="name"></span></button></li>`)
     .join('');
-  colorSection.querySelectorAll('.name').forEach((el, i) => (el.textContent = titles[i]));
+  colorSection.querySelectorAll('.chip .name').forEach((el, i) => (el.textContent = titles[i]));
   colorSection.dataset.titles = JSON.stringify(titles);
 
   extrasSection.hidden = extras.length === 0;
@@ -184,12 +183,41 @@ table.addEventListener('keydown', (e) => {
   next?.focus();
   next?.select();
 });
+// 수업 이름(칩)을 누르면 그 아래에 색 8개가 뜨고, 고르면 닫힙니다
+const pop = colorSection.querySelector('.q-pop');
+let popTitle = null;
+function closePop() {
+  pop.hidden = true;
+  popTitle = null;
+}
 colorSection.addEventListener('click', (e) => {
-  const dot = e.target.closest('.dot');
-  if (!dot) return;
-  const titles = JSON.parse(colorSection.dataset.titles);
-  colors[titles[Number(dot.dataset.titleIndex)]] = dot.dataset.color;
-  paint();
+  const chip = e.target.closest('.chip');
+  if (chip) {
+    const title = JSON.parse(colorSection.dataset.titles)[Number(chip.dataset.titleIndex)];
+    if (popTitle === title) return closePop();
+    popTitle = title;
+    for (const d of pop.querySelectorAll('.dot')) d.classList.toggle('on', d.dataset.color === colors[title]);
+    pop.style.left = `${chip.offsetLeft}px`;
+    pop.style.top = `${chip.offsetTop - chip.closest("ul").scrollTop + chip.offsetHeight + 4}px`;
+    pop.hidden = false;
+    pop.querySelector('.dot.on, .dot')?.focus();
+    return;
+  }
+  const dot = e.target.closest('.q-pop .dot');
+  if (dot && popTitle) {
+    colors[popTitle] = dot.dataset.color;
+    closePop();
+    paint();
+  }
+});
+dialog.addEventListener('click', (e) => {
+  if (!pop.hidden && !e.target.closest('.q-pop, .chip')) closePop();
+});
+dialog.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !pop.hidden) {
+    e.preventDefault(); // 창 전체가 닫히지 않고 색 고르기만 닫히게
+    closePop();
+  }
 });
 extrasSection.addEventListener('click', (e) => {
   const x = e.target.closest('[data-extra]');
@@ -238,6 +266,7 @@ function nextMonday(from = new Date()) {
 
 export async function openQuarterDialog(saved = () => {}) {
   onSaved = saved;
+  closePop();
   message.textContent = '';
   for (const input of inputs) input.value = '';
   colors = {};
