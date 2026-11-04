@@ -60,3 +60,10 @@ test('수업을 쿼터 동안 매주 같은 요일·시간으로 반복한다 (�
   const days = list.map((r) => `${r.startAt.getMonth() + 1}/${r.startAt.getDate()} ${r.startAt.getHours()}-${r.endAt.getHours()}`);
   assert.deepEqual(days, ['10/19 19-21', '10/26 19-21', '11/9 19-21', '11/16 19-21', '11/23 19-21', '11/30 19-21', '12/7 19-21', '12/14 19-21']);
 });
+
+test('weeklyRepeats는 긴 쿼터(20주)도 끝까지 펼친다', async () => {
+  const { weeklyRepeats } = await import('../src/shared/timetable.js');
+  const s = new Date(2026, 0, 5, 9, 0);
+  const list = weeklyRepeats(s, new Date(2026, 0, 5, 10, 0), { start: '2026-01-05', end: '2026-05-24' });
+  assert.equal(list.length, 19);
+});

@@ -132,3 +132,27 @@ test('점심시간·저녁시간도 그 시간 일정으로', async () => {
   assert.equal(parseQuick('저녁 7시 학원', now).kind, 'event'); // "저녁 7시"는 그대로 시각
   assert.equal(hm(parseDueInput('목 저녁시간', now).schedule.startAt), '11/5 18:10');
 });
+
+test('매주: "매주 화요일 점심"은 첫 화요일 점심 일정, 반복은 저장할 때 펼침', async () => {
+  const { parseWeekly, parseQuick } = await import('../src/shared/quickParse.js');
+  const now = new Date(2026, 10, 4, 15, 0); // 11/4(수) 오후 3시
+  const hm = (d) => `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  let r = parseWeekly('매주 화요일 점심 독서', now);
+  assert.equal(r.title, '독서');
+  assert.equal(`${hm(r.startAt)}-${hm(r.endAt)}`, '11/10 12:10-11/10 13:10');
+  assert.equal(r.allDay, false);
+  r = parseWeekly('매주 수 점심 회의', now); // 오늘 점심은 지남 → 다음 주
+  assert.equal(hm(r.startAt), '11/11 12:10');
+  r = parseWeekly('매주 목 10교시 동아리', now);
+  assert.equal(hm(r.startAt), '11/5 17:20');
+  r = parseWeekly('매주 금요일 오후 4시 학원', now);
+  assert.equal(`${hm(r.startAt)}-${hm(r.endAt)}`, '11/6 16:00-11/6 17:00');
+  r = parseWeekly('매주 월요일 단어시험', now);
+  assert.equal(r.allDay, true);
+  assert.equal(hm(r.startAt), '11/9 00:00');
+  r = parseWeekly('매주 화학 공부', now); // "화학"의 화는 요일이 아님 → 오늘 요일
+  assert.equal(r.title, '화학 공부');
+  assert.equal(r.startAt.getDay(), 3);
+  assert.equal(parseWeekly('화요일 점심 독서', now), null);
+  assert.equal(parseQuick('매주 화요일 점심 독서', now).kind, 'weekly');
+});

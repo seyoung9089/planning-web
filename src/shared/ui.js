@@ -1,9 +1,9 @@
-import { signIn, signUp, listTodos, addTodo, setTodoDone, deleteTodo } from './api.js';
+import { signIn, signUp, listTodos, addTodo, setTodoDone, deleteTodo, addWeeklyEvents } from './api.js';
 import { toDateKey, addDays, dueLabel, fromKeys } from './dates.js';
 import { periodLabel } from './timetable.js';
 import { openPeriodPicker } from './schedulePicker.js';
 import { sortTodos } from './todoOrder.js';
-import { parseEvening, parseTodoDate, parseDueInput } from './quickParse.js';
+import { parseEvening, parseTodoDate, parseDueInput, parseWeekly } from './quickParse.js';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -185,7 +185,7 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
     e.preventDefault();
     const title = form.title.value.trim();
     if (!title) return;
-    if (form.due.value || parseEvening(title) || parseTodoDate(title).date) form.requestSubmit();
+    if (form.due.value || parseWeekly(title) || parseEvening(title) || parseTodoDate(title).date) form.requestSubmit();
     else openPopup();
   });
   form.dueText.addEventListener('keydown', (e) => {
@@ -337,6 +337,23 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
       return;
     }
     // "저녁활동 1 수학 숙제", "화요일 10교시 영어"처럼 교시를 쓰면 그 시간에 하는 할 일로 저장합니다
+    // "매주 화요일 점심 독서"처럼 '매주'를 쓰면 이번 쿼터 끝까지 매주 캘린더 일정으로 넣습니다
+    const weekly = parseWeekly(title);
+    if (weekly) {
+      try {
+        const { count, last } = await addWeeklyEvents(weekly);
+        form.title.value = '';
+        form.due.value = '';
+        dueSchedule = null;
+        syncDueButtons();
+        dueHint.textContent = `✓ 「${weekly.title}」 매주 ${'일월화수목금토'[weekly.startAt.getDay()]}요일 일정 ${count}개를 ${last.getMonth() + 1}/${last.getDate()}까지 넣었습니다`;
+        changed();
+      } catch (err) {
+        dueHint.textContent = '저장 실패: ' + err.message;
+        dueHint.className = 'due-hint error';
+      }
+      return;
+    }
     const evening = parseEvening(title);
     if (dueSchedule) {
       // 마감 칸에 교시를 썼으면 그 시간에 하는 할 일(캘린더 일정)로 넣습니다
