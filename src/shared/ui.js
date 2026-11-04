@@ -3,7 +3,7 @@ import { toDateKey, addDays, dueLabel, fromKeys } from './dates.js';
 import { periodLabel } from './timetable.js';
 import { openPeriodPicker } from './schedulePicker.js';
 import { sortTodos } from './todoOrder.js';
-import { parseEvening, parseTodoDate, parseDueText } from './quickParse.js';
+import { parseEvening, parseTodoDate, parseDueInput } from './quickParse.js';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -83,12 +83,19 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
     <ul class="todos"></ul>`;
   const form = container.querySelector('form');
   const list = container.querySelector('ul');
+  // 마감 칸에 "목 2교시"처럼 교시까지 쓰면 마감일과 함께 그 시간(일정)도 기억해 둡니다
+  let dueSchedule = null;
+  const BAD_DUE = '날짜를 알아보지 못했습니다 (예: 다음주 화, 금요일, 11/3, 목 2교시)';
+  const dayText = (date) => `${date.getMonth() + 1}월 ${date.getDate()}일 (${'일월화수목금토'[date.getDay()]})`;
+  const dueHintText = (date, schedule) =>
+    schedule ? `→ ${dayText(date)} ${periodLabel(schedule.startAt, schedule.endAt)}에 하기 (캘린더 일정)` : `→ ${dayText(date)} 마감`;
 
   for (const button of form.querySelectorAll('[data-due]')) {
     button.addEventListener('click', () => {
       const key = toDateKey(addDays(new Date(), Number(button.dataset.due)));
       // 같은 버튼을 다시 누르면 마감일을 지웁니다
       form.due.value = form.due.value === key ? '' : key;
+      dueSchedule = null;
       syncDueButtons();
     });
   }
@@ -126,14 +133,15 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
   // 쓰는 동안에는 알아본 날짜만 보여 주고, 못 알아본다는 오류는 Enter를 눌렀을 때만 띄웁니다
   function showPopHint(showError = false) {
     const text = form.popDue.value.trim();
-    const date = text ? parseDueText(text) : null;
+    const parsed = text ? parseDueInput(text) : null;
+    const date = parsed?.date ?? null;
     const bad = showError && Boolean(text) && !date;
     form.popDue.classList.toggle('invalid', bad);
     popHint.className = 'pop-hint' + (bad ? ' error' : '');
     if (!text) popHint.textContent = '→ 오늘 마감';
-    else if (date) popHint.textContent = `→ ${date.getMonth() + 1}월 ${date.getDate()}일 (${'일월화수목금토'[date.getDay()]}) 마감`;
-    else popHint.textContent = bad ? '날짜를 알아보지 못했습니다 (예: 다음주 화, 금요일, 11/3)' : '';
-    return { text, date };
+    else if (date) popHint.textContent = dueHintText(date, parsed.schedule);
+    else popHint.textContent = bad ? BAD_DUE : '';
+    return { text, date, schedule: parsed?.schedule ?? null };
   }
   form.popDue.addEventListener('input', () => showPopHint());
   form.popDue.addEventListener('keydown', (e) => {
@@ -143,9 +151,10 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
       closePopup(true);
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      const { text, date } = showPopHint(true);
+      const { text, date, schedule } = showPopHint(true);
       if (text && !date) return; // 잘못 쓴 날짜면 고칠 때까지 기다립니다
       form.due.value = date ? toDateKey(date) : '';
+      dueSchedule = schedule;
       closePopup(true);
       form.requestSubmit();
     }
@@ -160,6 +169,7 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
     }
   });
   form.due.addEventListener('change', () => {
+    dueSchedule = null;
     form.dueText.value = form.due.value ? shortDate(form.due.value) : '';
     syncDueButtons();
   });
@@ -167,8 +177,9 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
   // "다음주 화"처럼 쓰는 대로 날짜를 찾아 마감일로 넣고, 아래에 "→ 11월 3일 (화)"처럼 보여 줍니다
   form.dueText.addEventListener('input', () => {
     const text = form.dueText.value.trim();
-    const date = text ? parseDueText(text) : null;
-    form.due.value = date ? toDateKey(date) : '';
+    const parsed = text ? parseDueInput(text) : null;
+    form.due.value = parsed ? toDateKey(parsed.date) : '';
+    dueSchedule = parsed?.schedule ?? null;
     form.dueText.classList.remove('invalid');
     syncDueButtons(false);
   });
@@ -187,10 +198,10 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
     const text = form.dueText.value.trim();
     if (form.due.value) {
       const date = fromKeys(form.due.value);
-      dueHint.textContent = `→ ${date.getMonth() + 1}월 ${date.getDate()}일 (${'일월화수목금토'[date.getDay()]}) 마감`;
+      dueHint.textContent = dueHintText(date, dueSchedule);
       dueHint.className = 'due-hint';
     } else if (text && showError) {
-      dueHint.textContent = '날짜를 알아보지 못했습니다 (예: 다음주 화, 금요일, 11/3)';
+      dueHint.textContent = BAD_DUE;
       dueHint.className = 'due-hint error';
     } else {
       dueHint.textContent = '';
@@ -252,7 +263,10 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
     }
     // "저녁활동 1 수학 숙제"처럼 쓰면 오후 7~8시로 정해서 저장합니다
     const evening = parseEvening(title);
-    if (evening) {
+    if (dueSchedule) {
+      // 마감 칸에 교시를 썼으면 그 시간에 하는 할 일(캘린더 일정)로 넣습니다
+      await addTodo(parseTodoDate(title).title, form.due.value, dueSchedule);
+    } else if (evening) {
       await addTodo(evening.title, form.due.value || (evening.date ? toDateKey(evening.date) : null), evening.schedule);
     } else {
       // "금요일 수행평가"처럼 요일·날짜를 쓰면 그 날을 마감일로 하고 제목에서는 뺍니다
@@ -261,6 +275,7 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
     }
     form.title.value = '';
     form.due.value = '';
+    dueSchedule = null;
     syncDueButtons();
     changed();
   });

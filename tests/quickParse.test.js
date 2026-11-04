@@ -80,3 +80,21 @@ test('마감 칸: 날짜 말만 알아보고, 다른 글자가 섞이면 null', 
   assert.equal(parseDueText('다음주쯤', thu), null);
   assert.equal(parseDueText('화요일 수행평가', thu), null);
 });
+
+test('마감 칸: 요일·날짜는 마감일, 교시를 쓰면 그 시간 일정', async () => {
+  const { parseDueInput } = await import('../src/shared/quickParse.js');
+  const now = new Date(2026, 10, 4, 13, 0); // 11/4(수) 오후 1시
+  const hm = (d) => `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const show = (r) => r && (r.schedule ? `${hm(r.schedule.startAt)}-${hm(r.schedule.endAt).slice(-5)}` : `마감 ${r.date.getMonth() + 1}/${r.date.getDate()}`);
+  assert.equal(show(parseDueInput('금', now)), '마감 11/6');
+  assert.equal(show(parseDueInput('다음주 화', now)), '마감 11/10');
+  assert.equal(show(parseDueInput('목 2교시', now)), '11/5 09:50-10:35');
+  assert.equal(show(parseDueInput('목요일 3~4교시', now)), '11/5 10:40-12:10');
+  assert.equal(show(parseDueInput('11/6 3-4교시', now)), '11/6 10:40-12:10');
+  assert.equal(show(parseDueInput('저녁활동 2', now)), '11/4 20:00-21:00');
+  assert.equal(show(parseDueInput('내일 저녁활동', now)), '11/5 19:00-21:00');
+  assert.equal(show(parseDueInput('7교시', now)), '11/4 14:50-15:35');
+  assert.equal(show(parseDueInput('2교시', now)), '11/5 09:50-10:35'); // 오늘 2교시는 지남 → 내일
+  assert.equal(show(parseDueInput('점심', now)), '11/4 12:10-13:10'); // 13:10에 끝나서 아직 오늘
+  for (const bad of ['13교시', '목 2교시 숙제', '아무거나', '']) assert.equal(parseDueInput(bad, now), null, bad);
+});

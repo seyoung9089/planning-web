@@ -158,3 +158,50 @@ export function parseDueText(input, now = new Date()) {
   const [date, rest] = takeDate(` ${cleaned} `, now);
   return date && !rest.trim() ? date : null;
 }
+
+// 마감 칸에 교시까지 쓰면("목 2교시", "3~4교시", "내일 저녁활동 1", "점심") 그 시간에 하는 일정으로 봅니다.
+// 돌려주는 값: { date, schedule } — 교시가 없으면 schedule은 null(마감일만), 못 알아보면 null
+// 날짜 없이 교시만 쓰면 오늘, 오늘 그 교시가 이미 끝났으면 내일로 잡습니다
+const CLASS_PERIOD = /(^|\s)(\d{1,2})\s?(?:(?:~|-|,|·)\s?(\d{1,2})\s?)?교시(?=\s|$)/;
+const LUNCH = /(^|\s)점심(?:\s?시간)?(?=\s|$)/;
+const LUNCH_INDEX = PERIODS.findIndex((p) => p.id === 'lunch');
+const periodIndex = (n) => PERIODS.findIndex((p) => p.label === `${n}교시`);
+
+function takePeriod(text) {
+  let m = text.match(EVENING);
+  if (m) {
+    const first = m[1] ? Number(m[1]) : 1;
+    const last = m[2] ? Number(m[2]) : m[1] ? first : 2;
+    return [[EV_INDEX + Math.min(first, last) - 1, EV_INDEX + Math.max(first, last) - 1], text.replace(m[0], ' ')];
+  }
+  m = text.match(CLASS_PERIOD);
+  if (m) {
+    const a = periodIndex(Number(m[2]));
+    const b = m[3] ? periodIndex(Number(m[3])) : a;
+    if (a < 0 || b < 0) return [false, text];
+    return [[Math.min(a, b), Math.max(a, b)], text.replace(m[0], ' ')];
+  }
+  m = text.match(LUNCH);
+  if (m) return [[LUNCH_INDEX, LUNCH_INDEX], text.replace(m[0], ' ')];
+  return [null, text];
+}
+
+export function parseDueInput(input, now = new Date()) {
+  const text = String(input ?? '').trim();
+  if (!text) return null;
+  const [period, rest] = takePeriod(` ${text} `);
+  if (period === false) return null; // "13교시"처럼 없는 교시
+  if (!period) {
+    const date = parseDueText(text, now);
+    return date ? { date, schedule: null } : null;
+  }
+  const dateText = rest.trim();
+  let date = dateText ? parseDueText(dateText, now) : null;
+  if (dateText && !date) return null;
+  const pick = (day) => periodRange(toDateKey(day), period[0], period[1]);
+  if (!date) {
+    date = startOfDay(now);
+    if (pick(date).endAt <= now) date = addDays(date, 1);
+  }
+  return { date, schedule: pick(date) };
+}
