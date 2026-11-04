@@ -8,9 +8,20 @@ export async function signIn(email, password) {
   if (error) throw error;
 }
 
+// 인증 메일의 링크를 누르면 돌아올 주소 (확장에서 가입해도 사이트로 오게 고정)
+const SITE_URL = 'https://planning-web.pages.dev/';
+
 export async function signUp(email, password) {
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo: SITE_URL },
+  });
   if (error) throw error;
+  // 이미 가입된 이메일이면 Supabase는 오류 대신 빈 identities를 돌려줍니다
+  if (data.user && data.user.identities?.length === 0) {
+    throw Object.assign(new Error('이미 가입된 이메일'), { code: 'user_already_exists' });
+  }
   // 이메일 인증이 켜져 있으면 session이 비어 있습니다
   return { needsConfirm: !data.session };
 }

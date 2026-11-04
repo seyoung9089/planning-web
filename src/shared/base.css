@@ -45,6 +45,8 @@ button.icon:hover { color: var(--danger); }
 .auth { display: grid; gap: 10px; max-width: 360px; margin: 48px auto; padding: 24px;
   border: 1px solid var(--border-strong); border-radius: var(--radius); }
 .auth .message { margin: 0; min-height: 1.5em; color: var(--danger); font-size: 14px; }
+.auth .message.info { color: var(--muted, #6b6b6b); }
+.auth .message.ok { color: var(--ok, #1a7f37); font-weight: 600; }
 
 /* 할 일 목록: 둥근 칸 대신 줄마다 가는 선으로 나눕니다 */
 .todo-add { margin-bottom: 8px; }
