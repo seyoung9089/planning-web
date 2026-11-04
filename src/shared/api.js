@@ -140,3 +140,39 @@ export function subscribeChanges(callback) {
     .subscribe();
   return () => supabase.removeChannel(channel);
 }
+
+// ---- 쿼터(학기 구간) ----
+// 사용자마다 쿼터 시작일을 저장합니다. 저장한 적이 없으면 null
+export async function getQuarterSetting() {
+  const { data, error } = await supabase.from('user_settings').select('quarter_start, quarter_weeks').maybeSingle();
+  if (error) throw error;
+  return data?.quarter_start ? { start: data.quarter_start, weeks: data.quarter_weeks } : null;
+}
+
+export async function saveQuarterSetting(start, weeks) {
+  const { data } = await supabase.auth.getUser();
+  const { error } = await supabase
+    .from('user_settings')
+    .upsert({ user_id: data.user.id, quarter_start: start, quarter_weeks: weeks, updated_at: new Date().toISOString() });
+  if (error) throw error;
+}
+
+export async function listTimetableBetween(from, to) {
+  const { data, error } = await supabase
+    .from('events')
+    .select('*')
+    .eq('is_timetable', true)
+    .gte('start_at', from.toISOString())
+    .lt('start_at', to.toISOString())
+    .order('start_at');
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteEvents(ids) {
+  // 한 번에 너무 많은 id를 보내지 않도록 나눠서 지웁니다
+  for (let i = 0; i < ids.length; i += 100) {
+    const { error } = await supabase.from('events').delete().in('id', ids.slice(i, i + 100));
+    if (error) throw error;
+  }
+}
