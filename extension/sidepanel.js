@@ -1,7 +1,7 @@
 import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import '../src/shared/base.css';
 import './sidepanel.css';
-import { onAuthChange, signOut, subscribeChanges, listEventsBetween, listTodos, addEvent, addTodo } from '../src/shared/api.js';
+import { onAuthChange, signOut, subscribeChanges, listEventsBetween, listTodos, addEvent, addTodo, addWeeklyEvents } from '../src/shared/api.js';
 import { periodLabel, isTimetable } from '../src/shared/timetable.js';
 import { renderAuthForm, createTodoList } from '../src/shared/ui.js';
 import { parseQuick } from '../src/shared/quickParse.js';
@@ -69,13 +69,17 @@ function renderPanel() {
   function showPreview() {
     const text = form.text.value.trim();
     if (!text) {
-      preview.innerHTML = '<span class="hint">시간을 쓰면 일정, 안 쓰면 할 일(「화요일 10교시」「점심시간」처럼 교시도 돼요). Enter로 추가</span>';
+      preview.innerHTML = '<span class="hint">시간을 쓰면 일정, 안 쓰면 할 일(「화요일 10교시」, 「매주 화요일 점심」도 돼요). Enter로 추가</span>';
       return;
     }
     const parsed = parseQuick(text);
     preview.innerHTML = '';
     const chip = document.createElement('span');
-    if (parsed.kind === 'event') {
+    if (parsed.kind === 'weekly') {
+      chip.className = 'chip event';
+      const when = parsed.allDay ? '종일' : periodLabel(parsed.startAt, parsed.endAt);
+      chip.textContent = `🔁 매주 ${'일월화수목금토'[parsed.startAt.getDay()]} ${when} · ${parsed.title} (쿼터 끝까지)`;
+    } else if (parsed.kind === 'event') {
       chip.className = 'chip event';
       chip.textContent = `📅 일정 · ${dayName(parsed.startAt)} ${hm(parsed.startAt)}–${hm(parsed.endAt)} · ${parsed.title}`;
     } else {
@@ -95,7 +99,9 @@ function renderPanel() {
     if (!text) return;
     const parsed = parseQuick(text);
     try {
-      if (parsed.kind === 'event') {
+      if (parsed.kind === 'weekly') {
+        await addWeeklyEvents(parsed);
+      } else if (parsed.kind === 'event') {
         await addEvent({ title: parsed.title, startAt: parsed.startAt, endAt: parsed.endAt });
       } else {
         await addTodo(parsed.title, parsed.dueDate ? toDateKey(parsed.dueDate) : null, parsed.schedule);

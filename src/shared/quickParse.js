@@ -117,6 +117,8 @@ export function parseEvening(input, now = new Date()) {
 export const parsePeriodTodo = parseEvening;
 
 export function parseQuick(input, now = new Date()) {
+  const weekly = parseWeekly(input, now);
+  if (weekly) return { kind: 'weekly', ...weekly };
   let text = ` ${input.trim()} `;
   const [time, afterTime] = takeTime(text);
   text = afterTime;
@@ -206,4 +208,37 @@ export function parseDueInput(input, now = new Date()) {
     if (pick(date).endAt <= now) date = addDays(date, 1);
   }
   return { date, schedule: pick(date) };
+}
+
+// "매주 화요일 점심 독서", "매주 목 10교시 회의", "매주 금 오후 4시 학원"처럼 '매주'를 쓰면
+// 첫 번째 날의 일정 { title, startAt, endAt, allDay }을 돌려줍니다 (매주 반복은 저장할 때 쿼터 끝까지 펼칩니다).
+// 요일을 안 쓰면 오늘 요일, 시간·교시를 안 쓰면 그 요일 종일 일정. '매주'가 없으면 null
+const WEEKLY = /(^|\s)매\s?주\s?(?:([일월화수목금토])(?:요일)?)?(?=\s|$)/;
+export function parseWeekly(input, now = new Date()) {
+  const text = ` ${String(input ?? '').trim()} `;
+  const m = text.match(WEEKLY);
+  if (!m) return null;
+  const today = startOfDay(now);
+  const target = m[2] ? WEEKDAY[m[2]] : today.getDay();
+  let day = addDays(today, (target - today.getDay() + 7) % 7);
+  let rest = text.replace(m[0], ' ');
+  let at;
+  const [period, afterPeriod] = takePeriod(rest);
+  if (period) {
+    rest = afterPeriod;
+    at = (d) => ({ ...periodRange(toDateKey(d), period[0], period[1]), allDay: false });
+  } else {
+    const [time, afterTime] = takeTime(rest);
+    if (time) {
+      rest = afterTime;
+      at = (d) => ({ startAt: new Date(d.getTime() + time.start * 60000), endAt: new Date(d.getTime() + time.end * 60000), allDay: false });
+    } else {
+      at = (d) => ({ startAt: d, endAt: addDays(d, 1), allDay: true });
+    }
+  }
+  let first = at(day);
+  // 오늘 그 시간이 이미 끝났으면 다음 주부터
+  if (!first.allDay && first.endAt <= now) first = at(addDays(day, 7));
+  const title = rest.replace(/\s+/g, ' ').trim();
+  return { title: title || '매주 일정', ...first };
 }

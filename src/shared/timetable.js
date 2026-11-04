@@ -33,7 +33,7 @@ export function weeklyRepeats(start, end, quarter = QUARTER) {
   const length = end - start;
   const list = [];
   // 원래 날짜에서 7일씩 앞뒤로 움직이며 쿼터 안에 드는 날만 고릅니다 (시간은 그대로)
-  for (let w = -12; w <= 12; w++) {
+  for (let w = -30; w <= 30; w++) {
     if (w === 0) continue;
     const s = addDays(start, w * 7);
     const key = toDateKey(s);

@@ -1,5 +1,7 @@
 import { supabase } from './supabase.js';
 import { toDateKey } from './dates.js';
+import { QUARTER, weeklyRepeats } from './timetable.js';
+import { quarterRange, DEFAULT_WEEKS } from './quarterPlan.js';
 
 // ---- 로그인 ----
 
@@ -186,4 +188,18 @@ export async function deleteEvents(ids) {
     const { error } = await supabase.from('events').delete().in('id', ids.slice(i, i + 100));
     if (error) throw error;
   }
+}
+
+// "매주 화요일 점심"처럼 매주 하는 일정: 첫 날부터 이번 쿼터(9주) 끝까지 매주 같은 요일·시간에 넣습니다.
+// 쿼터가 이미 끝났거나 정한 적이 없으면 첫 날부터 9주. 넣은 개수와 마지막 날을 돌려줍니다
+export async function addWeeklyEvents({ title, startAt, endAt, allDay }) {
+  const setting = await getQuarterSetting().catch(() => null);
+  let range = setting ? quarterRange(setting.start, setting.weeks) : QUARTER;
+  if (toDateKey(startAt) > range.end) range = quarterRange(toDateKey(startAt), setting?.weeks ?? DEFAULT_WEEKS);
+  const list = [
+    { startAt, endAt },
+    ...weeklyRepeats(startAt, endAt, range).filter((r) => r.startAt > startAt),
+  ].map((r) => ({ title, startAt: r.startAt, endAt: r.endAt, allDay, color: null, memo: null, isTimetable: false }));
+  await addEvents(list);
+  return { count: list.length, last: list[list.length - 1].startAt, range };
 }
