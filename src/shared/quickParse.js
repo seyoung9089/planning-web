@@ -162,6 +162,8 @@ export function parseDueText(input, now = new Date()) {
 // 날짜 없이 교시만 쓰면 오늘, 오늘 그 교시가 이미 끝났으면 내일로 잡습니다
 const CLASS_PERIOD = /(^|\s)(\d{1,2})\s?(?:(?:~|-|,|·)\s?(\d{1,2})\s?)?교시(?=\s|$)/;
 const LUNCH = /(^|\s)점심(?:\s?시간)?(?=\s|$)/;
+const DINNER = /(^|\s)저녁\s?시간(?=\s|$)/;
+const DINNER_INDEX = PERIODS.findIndex((p) => p.id === 'dinner');
 const LUNCH_INDEX = PERIODS.findIndex((p) => p.id === 'lunch');
 const periodIndex = (n) => PERIODS.findIndex((p) => p.label === `${n}교시`);
 
@@ -181,6 +183,8 @@ function takePeriod(text) {
   }
   m = text.match(LUNCH);
   if (m) return [[LUNCH_INDEX, LUNCH_INDEX], text.replace(m[0], ' ')];
+  m = text.match(DINNER);
+  if (m) return [[DINNER_INDEX, DINNER_INDEX], text.replace(m[0], ' ')];
   return [null, text];
 }
 

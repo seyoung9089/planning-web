@@ -14,6 +14,7 @@ export const PERIODS = [
   { id: 'p8', label: '8교시', start: '15:40', end: '16:25' },
   { id: 'p9', label: '9교시', start: '16:30', end: '17:15', note: '방과후 1' },
   { id: 'p10', label: '10교시', start: '17:20', end: '18:05', note: '방과후 2' },
+  { id: 'dinner', label: '저녁시간', start: '18:10', end: '18:55' },
   { id: 'ev1', label: '저녁활동 1', start: '19:00', end: '20:00' },
   { id: 'ev2', label: '저녁활동 2', start: '20:00', end: '21:00' },
 ];
