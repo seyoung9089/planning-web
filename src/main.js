@@ -39,6 +39,7 @@ onAuthChange((session) => {
         <div id="todo-list"></div>
       </section>
       <div id="mini-calendar"></div>
+      <a href="/dashboard" class="install-btn dash-link">📊 오늘 대시보드</a>
       <button id="quarter" class="install-btn">🗓 쿼터 시간표 등록</button>
       <button id="install" class="install-btn">🧩 어느 화면에서든 쓰는 패널 설치</button>
       <footer class="account">

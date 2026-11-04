@@ -9,6 +9,7 @@ export default defineConfig({
       input: {
         main: resolve(import.meta.dirname, 'index.html'),
         extension: resolve(import.meta.dirname, 'extension.html'), // 확장 프로그램 소개 페이지
+        dashboard: resolve(import.meta.dirname, 'dashboard.html'), // 오늘 대시보드 (날씨·뉴스·할 일)
       },
     },
   },
