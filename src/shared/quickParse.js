@@ -12,22 +12,94 @@ function startOfDay(d) {
   return x;
 }
 
+// "한 달", "두 주"처럼 숫자를 한글로 써도 알아봅니다
+const COUNT_WORD = { 한: 1, 두: 2, 세: 3, 네: 4, 다섯: 5, 여섯: 6, 일곱: 7, 여덟: 8, 아홉: 9, 열: 10, 하루: 1, 이틀: 2, 사흘: 3, 나흘: 4 };
+const toCount = (s) => (/^\d+$/.test(s) ? Number(s) : COUNT_WORD[s]);
+
+// n달 뒤 같은 날짜 (1/31의 한 달 뒤처럼 그 날짜가 없으면 그달 마지막 날)
+function addMonths(date, n) {
+  const first = new Date(date.getFullYear(), date.getMonth() + n, 1);
+  const last = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+  return new Date(first.getFullYear(), first.getMonth(), Math.min(date.getDate(), last));
+}
+
+// 주·달을 기준으로 하는 말: "다음주", "다다음주", "다다다음주", "담주", "이번 달", "다음달", "다다음달",
+// "2주 뒤", "일주일 후", "한 달 뒤", "3개월 후", "3일 뒤", "이틀 후"
+// 뒤에 요일("다다음주 화", "2달 뒤 화요일")이나 날짜("다음달 5일")가 붙으면 함께 읽습니다
+const REL = new RegExp(
+  String.raw`(^|\s)(?:(이번|(다{0,2})(?:다음|담))\s?(주|달)|(일주일)\s?(?:뒤|후|있다가)|(\d{1,3}|한|두|세|네|다섯|여섯|일곱|여덟|아홉|열|하루|이틀|사흘|나흘)\s?(주일?|주|달|개월|일)?\s?(?:뒤|후|있다가))` +
+    String.raw`(?:\s?(?:([일월화수목금토])(?:요일)?|(\d{1,2})일))?(?=\s|$)`,
+);
+
+function relativeDate(m, today) {
+  const [, , word, extraDa, namedUnit, oneWeek, countText, countUnitRaw, weekday, dayOfMonth] = m;
+  let unit; // 'week' | 'month' | 'day'
+  let n;
+  let calendar = false; // "다음달", "이번 주"처럼 달력 칸(주·달) 단위로 세는지
+  if (word) {
+    unit = namedUnit === '주' ? 'week' : 'month';
+    n = word === '이번' ? 0 : extraDa.length + 1;
+    calendar = true;
+  } else if (oneWeek) {
+    unit = 'week';
+    n = 1;
+  } else {
+    n = toCount(countText);
+    const u = countUnitRaw ?? '';
+    if (u.startsWith('주')) unit = 'week';
+    else if (u === '달' || u === '개월') unit = 'month';
+    else if (u === '일' || /^(하루|이틀|사흘|나흘)$/.test(countText)) unit = 'day';
+    else return null; // "3 뒤"처럼 단위가 없으면 날짜 말이 아닙니다
+    if (/^(하루|이틀|사흘|나흘)$/.test(countText) && u) return null;
+  }
+  if (!n && n !== 0) return null;
+  const target = weekday ? WEEKDAY[weekday] : null;
+
+  if (unit === 'day') {
+    if (target !== null || dayOfMonth) return null;
+    return addDays(today, n);
+  }
+  if (unit === 'week') {
+    if (dayOfMonth) return null;
+    // 요일을 쓰면 그 주(일~토)의 그 요일, 안 쓰면 같은 요일 (이번 주만 쓰면 날짜 말로 보지 않습니다)
+    if (target === null) return n === 0 ? null : addDays(today, 7 * n);
+    const sunday = addDays(today, 7 * n - today.getDay());
+    return addDays(sunday, target);
+  }
+  // 달: "다음달 5일"은 다음 달 5일, "다음달 화요일"은 다음 달 첫 화요일,
+  // "2달 뒤"는 두 달 뒤 같은 날짜, "2달 뒤 화요일"은 그날부터 가장 가까운 화요일
+  const base = calendar
+    ? n === 0
+      ? today
+      : new Date(today.getFullYear(), today.getMonth() + n, 1)
+    : addMonths(today, n);
+  if (dayOfMonth) {
+    const d = Number(dayOfMonth);
+    const last = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
+    if (d < 1 || d > last) return null;
+    return new Date(base.getFullYear(), base.getMonth(), d);
+  }
+  if (target !== null) return addDays(base, (target - base.getDay() + 7) % 7);
+  if (calendar) return n === 0 ? null : addMonths(today, n); // "다음달"만 쓰면 다음 달 같은 날짜
+  return base;
+}
+
 // 날짜 표현을 찾아서 [날짜, 남은 글자]를 돌려줍니다
 function takeDate(text, now) {
   const today = startOfDay(now);
+  // "다음달 5일", "3일 뒤"가 아래 "5일"·"3일" 규칙에 먼저 잡히지 않도록 가장 먼저 봅니다
+  const rel = text.match(REL);
+  if (rel) {
+    const date = relativeDate(rel, today);
+    if (date && !isNaN(date)) return [date, text.replace(rel[0], rel[1] || ' ')];
+  }
   const rules = [
     [/(^|\s)오늘(\s|$)/, () => today],
     [/(^|\s)내일(\s|$)/, () => addDays(today, 1)],
     [/(^|\s)모레(\s|$)/, () => addDays(today, 2)],
-    [/(^|\s)(?:(이번\s?주|다음\s?주|담주)\s?)?([일월화수목금토])요일?(\s|$)/, (m) => {
-      const target = WEEKDAY[m[3]];
-      if (m[2]) {
-        // "이번 주 금요일"은 이번 주(일~토) 안에서, "다음 주"는 그다음 주
-        const sunday = addDays(today, -today.getDay());
-        const base = /다음|담/.test(m[2]) ? addDays(sunday, 7) : sunday;
-        return addDays(base, target);
-      }
+    [/(^|\s)([일월화수목금토])요일?(\s|$)/, (m) => {
       // 그냥 "금요일"은 오늘 포함 가장 가까운 금요일
+      const target = WEEKDAY[m[2]];
       return addDays(today, (target - today.getDay() + 7) % 7);
     }],
     [/(^|\s)(\d{1,2})[/.](\d{1,2})(\s|$)/, (m) => monthDay(today, Number(m[2]), Number(m[3]))],
@@ -154,7 +226,7 @@ export function parseDueText(input, now = new Date()) {
   let cleaned = String(input ?? '').replace(/\([일월화수목금토]\)/g, ' ').trim();
   if (!cleaned) return null;
   // 마감 칸에서는 "화", "다음주 금"처럼 요일 한 글자만 써도 알아봅니다
-  if (/(^|\s|주)[일월화수목금토]$/.test(cleaned)) cleaned += '요일';
+  if (/(^|\s|주|달|뒤|후)[일월화수목금토]$/.test(cleaned)) cleaned += '요일';
   const [date, rest] = takeDate(` ${cleaned} `, now);
   return date && !rest.trim() ? date : null;
 }

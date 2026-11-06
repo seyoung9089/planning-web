@@ -156,3 +156,67 @@ test('매주: "매주 화요일 점심"은 첫 화요일 점심 일정, 반복�
   assert.equal(parseWeekly('화요일 점심 독서', now), null);
   assert.equal(parseQuick('매주 화요일 점심 독서', now).kind, 'weekly');
 });
+
+test('다다음주·다음달·N달 뒤 같은 말도 날짜로 알아본다', () => {
+  const fri = new Date(2026, 10, 6, 9, 0); // 11/6(금)
+  const due = (s) => {
+    const d = parseDueText(s, fri);
+    return d ? day(d) : null;
+  };
+  const cases = {
+    '다음주 화': '11/10',
+    '다다음주 화': '11/17',
+    '다다다음주 화요일': '11/24',
+    '담주 월': '11/9',
+    '다음주': '11/13',
+    '다다음주': '11/20',
+    '다다다음주': '11/27',
+    '이번 주 토': '11/7',
+    '2주 뒤': '11/20',
+    '3주 후': '11/27',
+    '일주일 뒤': '11/13',
+    '2주 뒤 수요일': '11/18',
+    '다음달': '12/6',
+    '다음 달 5일': '12/5',
+    '다다음달': '1/6',
+    '다음달 화요일': '12/1',
+    '이번 달 30일': '11/30',
+    '2달 뒤': '1/6',
+    '2달 후': '1/6',
+    '한 달 뒤': '12/6',
+    '3개월 후': '2/6',
+    '2달 뒤 화요일': '1/12',
+    '2달 뒤 화': '1/12',
+    '3일 뒤': '11/9',
+    '이틀 후': '11/8',
+    '10일 후': '11/16',
+  };
+  for (const [input, want] of Object.entries(cases)) assert.equal(due(input), want, input);
+  for (const bad of ['다음주쯤', '이번 달 31일', '이번 주', '3 뒤', '한 달']) assert.equal(due(bad), null, bad);
+  // 1/31의 한 달 뒤는 2월 마지막 날
+  assert.equal(day(parseDueText('한 달 뒤', new Date(2027, 0, 31))), '2/28');
+});
+
+test('할 일 칸·빠른 입력에서도 새 날짜 말을 제목과 나눈다', async () => {
+  const { parseEvening } = await import('../src/shared/quickParse.js');
+  const fri = new Date(2026, 10, 6, 9, 0);
+  let r = parseTodoDate('다다음주 금요일 수행평가', fri);
+  assert.equal(r.title, '수행평가');
+  assert.equal(day(r.date), '11/20');
+  r = parseTodoDate('독후감 다음달 5일', fri);
+  assert.equal(r.title, '독후감');
+  assert.equal(day(r.date), '12/5');
+  r = parseTodoDate('2달 뒤 화요일 모의고사', fri);
+  assert.equal(r.title, '모의고사');
+  assert.equal(day(r.date), '1/12');
+  const q = parseQuick('3일 뒤 오후 4시 병원', fri);
+  assert.equal(q.kind, 'event');
+  assert.equal(`${q.title} ${day(q.startAt)} ${hm(q.startAt)}`, '병원 11/9 16:00');
+  const e = parseEvening('다다음주 화 10교시 영어', fri);
+  assert.equal(e.title, '영어');
+  assert.equal(`${day(e.schedule.startAt)} ${hm(e.schedule.startAt)}`, '11/17 17:20');
+  // 일정 일찍처럼 '일'로 시작하는 글자는 요일로 보지 않습니다
+  r = parseTodoDate('다음주 일찍 가기', fri);
+  assert.equal(r.title, '일찍 가기');
+  assert.equal(day(r.date), '11/13');
+});

@@ -228,7 +228,7 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
   const list = container.querySelector('ul');
   // 마감 칸에 "목 2교시"처럼 교시까지 쓰면 마감일과 함께 그 시간(일정)도 기억해 둡니다
   let dueSchedule = null;
-  const BAD_DUE = '날짜를 알아보지 못했습니다 (예: 다음주 화, 금요일, 11/3, 목 2교시)';
+  const BAD_DUE = '날짜를 알아보지 못했습니다 (예: 다다음주 화, 다음달 5일, 2달 뒤, 11/3, 목 2교시)';
   const dayText = (date) => `${date.getMonth() + 1}월 ${date.getDate()}일 (${'일월화수목금토'[date.getDay()]})`;
   const dueHintText = (date, schedule) =>
     schedule ? `→ ${dayText(date)} ${periodLabel(schedule.startAt, schedule.endAt)}에 하기 (캘린더 일정)` : `→ ${dayText(date)} 마감`;
