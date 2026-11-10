@@ -3,7 +3,7 @@ import '../src/shared/base.css';
 import './sidepanel.css';
 import { onAuthChange, signOut, subscribeChanges, listEventsBetween, listTodos, addEvent, addTodo, addWeeklyEvents } from '../src/shared/api.js';
 import { periodLabel, isTimetable } from '../src/shared/timetable.js';
-import { renderAuthForm, createTodoList } from '../src/shared/ui.js';
+import { renderAuthForm, createTodoList, attachDuePopup } from '../src/shared/ui.js';
 import { parseQuick } from '../src/shared/quickParse.js';
 import { findGaps } from '../src/shared/freeTime.js';
 import { toDateKey, addDays } from '../src/shared/dates.js';
@@ -86,15 +86,31 @@ function renderPanel() {
       chip.className = 'chip todo';
       chip.textContent = parsed.schedule
         ? `☑ 할 일 · ${dayName(parsed.schedule.startAt)} ${periodLabel(parsed.schedule.startAt, parsed.schedule.endAt)} · ${parsed.title}`
-        : `☑ 할 일${parsed.dueDate ? ` · 마감 ${dayName(parsed.dueDate)}` : ''} · ${parsed.title}`;
+        : parsed.dueDate
+          ? `☑ 할 일 · 마감 ${dayName(parsed.dueDate)} · ${parsed.title}`
+          : `☑ 할 일 · ${parsed.title} · Enter 누르면 마감일 입력`;
     }
     preview.append(chip);
   }
   form.text.addEventListener('input', showPreview);
   showPreview();
 
-  form.addEventListener('submit', async (e) => {
+  // 사이트 할 일 칸과 똑같이: 날짜·시간 없이 할 일을 쓰고 Enter → 마감일 팝업 → 날짜 쓰고 Enter로 저장
+  // (비우면 오늘, Esc 취소). 날짜·시간·교시·'매주'를 이미 썼으면 팝업 없이 바로 저장합니다
+  const needsDue = (parsed) => parsed.kind === 'todo' && !parsed.dueDate && !parsed.schedule;
+  const duePopup = attachDuePopup(form, form.text, ({ date, schedule }) => save({ dueDate: date, schedule }));
+
+  form.text.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.isComposing) return;
     e.preventDefault();
+    const text = form.text.value.trim();
+    if (!text) return;
+    if (needsDue(parseQuick(text))) duePopup.open();
+    else save();
+  });
+  form.addEventListener('submit', (e) => e.preventDefault());
+
+  async function save(due = null) {
     const text = form.text.value.trim();
     if (!text) return;
     const parsed = parseQuick(text);
@@ -104,7 +120,9 @@ function renderPanel() {
       } else if (parsed.kind === 'event') {
         await addEvent({ title: parsed.title, startAt: parsed.startAt, endAt: parsed.endAt });
       } else {
-        await addTodo(parsed.title, parsed.dueDate ? toDateKey(parsed.dueDate) : null, parsed.schedule);
+        const dueDate = due ? due.dueDate : parsed.dueDate;
+        const schedule = due ? due.schedule : parsed.schedule;
+        await addTodo(parsed.title, dueDate ? toDateKey(dueDate) : null, schedule);
       }
       form.text.value = '';
       showPreview();
@@ -114,7 +132,7 @@ function renderPanel() {
     } catch (err) {
       preview.textContent = '추가 실패: ' + err.message;
     }
-  });
+  }
 
   // "지금 하는 일"과 "다음 일정"을 한눈에
   function renderNowNext() {
@@ -240,7 +258,7 @@ function renderPanel() {
   }, 60000);
   // Alt+S로 패널을 열면 클릭하지 않아도 바로 쓸 수 있게 입력 칸에 커서를 둡니다
   const focusInput = () => {
-    if (document.activeElement?.closest?.('#todo-list')) return; // 할 일 목록을 쓰는 중이면 그대로 둡니다
+    if (document.activeElement?.closest?.('#todo-list, .due-popup')) return; // 할 일 목록·마감일 팝업을 쓰는 중이면 그대로 둡니다
     window.focus();
     form.text.focus();
   };
