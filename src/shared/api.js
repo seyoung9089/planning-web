@@ -157,6 +157,34 @@ export async function deleteEvent(id) {
   if (error) throw error;
 }
 
+// ---- 메모장 (사이드 패널) ----
+// 할 일·일정이 아닌 단순 메모. 최근 것부터
+
+export async function listNotes() {
+  const { data, error } = await supabase.from('notes').select('id, body, created_at').order('created_at', { ascending: false }).limit(200);
+  if (error) throw error;
+  return data;
+}
+
+export async function addNote(body) {
+  const { error } = await supabase.from('notes').insert({ body });
+  if (error) throw error;
+}
+
+export async function deleteNote(id) {
+  const { error } = await supabase.from('notes').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// 메모는 따로 구독합니다 (사이트는 메모를 안 쓰므로 할 일·일정 구독과 섞지 않습니다)
+export function subscribeNotes(callback) {
+  const channel = supabase
+    .channel('my-notes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, callback)
+    .subscribe();
+  return () => supabase.removeChannel(channel);
+}
+
 // ---- 실시간 동기화 ----
 // 다른 곳(사이트 ↔ 사이드 패널)에서 바뀌면 callback이 불립니다
 export function subscribeChanges(callback) {

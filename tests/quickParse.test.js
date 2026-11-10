@@ -220,3 +220,11 @@ test('할 일 칸·빠른 입력에서도 새 날짜 말을 제목과 나눈다'
   assert.equal(r.title, '일찍 가기');
   assert.equal(day(r.date), '11/13');
 });
+
+test('「메모」로 시작하면 메모장으로', async () => {
+  const { parseNote } = await import('../src/shared/quickParse.js');
+  assert.equal(parseNote('메모 엄마한테 전화하기'), '엄마한테 전화하기');
+  assert.equal(parseNote('  메모: 준비물 확인 '), '준비물 확인');
+  assert.equal(parseNote('메모：내일 우산'), '내일 우산');
+  for (const no of ['메모', '메모 ', '메모하기', '수학 메모 정리', '내일 메모 쓰기']) assert.equal(parseNote(no), null, no);
+});
