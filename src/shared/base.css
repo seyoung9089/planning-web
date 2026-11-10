@@ -103,13 +103,16 @@ button.icon:hover { color: var(--danger); }
 .due-hint:empty { display: none; }
 .due-hint.error { color: var(--danger); }
 /* 할 일 Enter 뒤에 뜨는 마감일 팝업 */
-.todo-add { position: relative; }
+.todo-add, .has-due-popup { position: relative; }
 .due-popup { position: absolute; left: 0; right: 0; top: 44px; z-index: 20; display: grid; gap: 6px; padding: 10px;
   background: var(--bg); border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); }
 .due-popup[hidden] { display: none; }
 .due-popup-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 13px; }
 .due-popup-head span { font-size: 11px; color: var(--muted); }
-.due-popup input { padding: 6px 8px; font-size: 14px; }
+.pop-row { position: relative; display: flex; gap: 6px; }
+.due-popup .pop-due { flex: 1; min-width: 0; padding: 6px 8px; font-size: 14px; }
+.due-popup .pop-pick { padding: 3px 8px; border-radius: var(--radius); }
+.due-popup .pop-date { position: absolute; right: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; border: 0; padding: 0; }
 .due-popup input.invalid { border-color: var(--danger); }
 .pop-hint { margin: 0; font-size: 12px; color: var(--primary); }
 .pop-hint.error { color: var(--danger); }

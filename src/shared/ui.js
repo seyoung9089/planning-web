@@ -203,6 +203,101 @@ export function renderNewPasswordForm(container, { email = '', onDone } = {}) {
   });
 }
 
+// 할 일 Enter 뒤에 뜨는 마감일 팝업 (사이트 할 일 칸과 확장 사이드 패널이 함께 씁니다)
+// form 안에 팝업을 붙이고, 날짜를 쓰고 Enter를 누르면 onSave({ date, schedule })를 부릅니다.
+// 비우고 Enter면 date가 null(= 오늘), Esc는 취소하고 input으로 돌아갑니다
+const BAD_DUE = '날짜를 알아보지 못했습니다 (예: 다다음주 화, 다음달 5일, 2달 뒤, 11/3, 목 2교시)';
+const dayText = (date) => `${date.getMonth() + 1}월 ${date.getDate()}일 (${'일월화수목금토'[date.getDay()]})`;
+const dueHintText = (date, schedule) =>
+  schedule ? `→ ${dayText(date)} ${periodLabel(schedule.startAt, schedule.endAt)}에 하기 (캘린더 일정)` : `→ ${dayText(date)} 마감`;
+
+export function attachDuePopup(form, input, onSave) {
+  form.classList.add('has-due-popup');
+  const popup = document.createElement('div');
+  popup.className = 'due-popup';
+  popup.setAttribute('role', 'dialog');
+  popup.setAttribute('aria-label', '마감일 입력');
+  popup.hidden = true;
+  popup.innerHTML = `
+    <div class="due-popup-head"><b>마감일</b><span>Enter 저장 · 비우면 오늘 · Esc 취소</span></div>
+    <div class="pop-row">
+      <input class="pop-due" placeholder="예: 금, 다음주 화, 11/3, 목 2교시" maxlength="20" autocomplete="off" />
+      <button type="button" class="pop-pick" title="달력에서 고르기" aria-label="달력에서 고르기">📅</button>
+      <input type="date" class="pop-date" tabindex="-1" aria-hidden="true" />
+    </div>
+    <p class="pop-hint" aria-live="polite"></p>`;
+  form.append(popup);
+  const popDue = popup.querySelector('.pop-due');
+  const popDate = popup.querySelector('.pop-date');
+  const popHint = popup.querySelector('.pop-hint');
+  let picking = false; // 📅 달력을 여는 동안에는 팝업을 닫지 않습니다
+
+  // 쓰는 동안에는 알아본 날짜만 보여 주고, 못 알아본다는 오류는 Enter를 눌렀을 때만 띄웁니다
+  function showHint(showError = false) {
+    const text = popDue.value.trim();
+    const parsed = text ? parseDueInput(text) : null;
+    const date = parsed?.date ?? null;
+    const bad = showError && Boolean(text) && !date;
+    popDue.classList.toggle('invalid', bad);
+    popHint.className = 'pop-hint' + (bad ? ' error' : '');
+    if (!text) popHint.textContent = '→ 오늘 마감';
+    else if (date) popHint.textContent = dueHintText(date, parsed.schedule);
+    else popHint.textContent = bad ? BAD_DUE : '';
+    return { text, date, schedule: parsed?.schedule ?? null };
+  }
+  function open() {
+    popup.hidden = false;
+    popDue.value = '';
+    showHint();
+    popDue.focus();
+  }
+  function close(backToInput) {
+    popup.hidden = true;
+    if (backToInput) input.focus();
+  }
+  function save(date, schedule) {
+    close(true);
+    onSave({ date, schedule });
+  }
+  popDue.addEventListener('input', () => showHint());
+  popDue.addEventListener('keydown', (e) => {
+    if (e.isComposing) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      close(true);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const { text, date, schedule } = showHint(true);
+      if (text && !date) return; // 잘못 쓴 날짜면 고칠 때까지 기다립니다
+      save(date, schedule);
+    }
+  });
+  // 팝업 밖을 누르면 닫습니다 (쓴 할 일은 그대로 남습니다)
+  popDue.addEventListener('blur', () =>
+    setTimeout(() => {
+      if (!picking && !popup.contains(document.activeElement)) close(false);
+    }, 0),
+  );
+  const pickButton = popup.querySelector('.pop-pick');
+  pickButton.addEventListener('mousedown', (e) => e.preventDefault()); // 누르는 순간 입력 칸 포커스를 잃지 않게
+  pickButton.addEventListener('click', () => {
+    picking = true;
+    try {
+      popDate.showPicker();
+    } catch {
+      popDate.click();
+    }
+    setTimeout(() => {
+      picking = false;
+    }, 300);
+  });
+  popDate.addEventListener('change', () => {
+    picking = false;
+    if (popDate.value) save(fromKeys(popDate.value), null);
+  });
+  return { open, close };
+}
+
 // 할 일 목록: 추가(마감일 선택), 완료 체크, 삭제
 export function createTodoList(container, { onChange, showForm = true } = {}) {
   container.innerHTML = `
@@ -217,21 +312,12 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
         <input name="due" type="date" class="due-date" tabindex="-1" aria-hidden="true" />
       </div>
       <p class="due-hint" aria-live="polite"></p>
-      <div class="due-popup" role="dialog" aria-label="마감일 입력" hidden>
-        <div class="due-popup-head"><b>마감일</b><span>Enter 저장 · 비우면 오늘 · Esc 취소</span></div>
-        <input name="popDue" placeholder="마감 기한" maxlength="20" autocomplete="off" />
-        <p class="pop-hint" aria-live="polite"></p>
-      </div>
     </form>
     <ul class="todos"></ul>`;
   const form = container.querySelector('form');
   const list = container.querySelector('ul');
   // 마감 칸에 "목 2교시"처럼 교시까지 쓰면 마감일과 함께 그 시간(일정)도 기억해 둡니다
   let dueSchedule = null;
-  const BAD_DUE = '날짜를 알아보지 못했습니다 (예: 다다음주 화, 다음달 5일, 2달 뒤, 11/3, 목 2교시)';
-  const dayText = (date) => `${date.getMonth() + 1}월 ${date.getDate()}일 (${'일월화수목금토'[date.getDay()]})`;
-  const dueHintText = (date, schedule) =>
-    schedule ? `→ ${dayText(date)} ${periodLabel(schedule.startAt, schedule.endAt)}에 하기 (캘린더 일정)` : `→ ${dayText(date)} 마감`;
 
   for (const button of form.querySelectorAll('[data-due]')) {
     button.addEventListener('click', () => {
@@ -243,8 +329,11 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
     });
   }
   const dueHint = form.querySelector('.due-hint');
-  const popup = form.querySelector('.due-popup');
-  const popHint = form.querySelector('.pop-hint');
+  const duePopup = attachDuePopup(form, form.title, ({ date, schedule }) => {
+    form.due.value = date ? toDateKey(date) : '';
+    dueSchedule = schedule;
+    form.requestSubmit();
+  });
 
   // 할 일을 쓰고 Enter → 마감일 팝업이 뜨고 → 날짜를 쓰고 Enter로 저장. 마우스 없이 끝납니다.
   // 마감일을 이미 골랐거나 제목에 날짜·교시를 썼으면 팝업 없이 바로 저장합니다
@@ -254,7 +343,7 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
     const title = form.title.value.trim();
     if (!title) return;
     if (form.due.value || parseWeekly(title) || parseEvening(title) || parseTodoDate(title).date) form.requestSubmit();
-    else openPopup();
+    else duePopup.open();
   });
   form.dueText.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.isComposing) {
@@ -263,47 +352,6 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
     }
   });
 
-  function openPopup() {
-    popup.hidden = false;
-    form.popDue.value = '';
-    showPopHint();
-    form.popDue.focus();
-  }
-  function closePopup(backToTitle) {
-    popup.hidden = true;
-    if (backToTitle) form.title.focus();
-  }
-  // 쓰는 동안에는 알아본 날짜만 보여 주고, 못 알아본다는 오류는 Enter를 눌렀을 때만 띄웁니다
-  function showPopHint(showError = false) {
-    const text = form.popDue.value.trim();
-    const parsed = text ? parseDueInput(text) : null;
-    const date = parsed?.date ?? null;
-    const bad = showError && Boolean(text) && !date;
-    form.popDue.classList.toggle('invalid', bad);
-    popHint.className = 'pop-hint' + (bad ? ' error' : '');
-    if (!text) popHint.textContent = '→ 오늘 마감';
-    else if (date) popHint.textContent = dueHintText(date, parsed.schedule);
-    else popHint.textContent = bad ? BAD_DUE : '';
-    return { text, date, schedule: parsed?.schedule ?? null };
-  }
-  form.popDue.addEventListener('input', () => showPopHint());
-  form.popDue.addEventListener('keydown', (e) => {
-    if (e.isComposing) return;
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      closePopup(true);
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      const { text, date, schedule } = showPopHint(true);
-      if (text && !date) return; // 잘못 쓴 날짜면 고칠 때까지 기다립니다
-      form.due.value = date ? toDateKey(date) : '';
-      dueSchedule = schedule;
-      closePopup(true);
-      form.requestSubmit();
-    }
-  });
-  // 팝업 밖을 누르면 닫습니다 (쓴 할 일은 그대로 남습니다)
-  form.popDue.addEventListener('blur', () => setTimeout(() => closePopup(false), 0));
   form.querySelector('.due-pick').addEventListener('click', () => {
     try {
       form.due.showPicker();
