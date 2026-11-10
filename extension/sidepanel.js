@@ -1,10 +1,11 @@
 import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import '../src/shared/base.css';
 import './sidepanel.css';
-import { onAuthChange, signOut, subscribeChanges, listEventsBetween, listTodos, addEvent, addTodo, addWeeklyEvents } from '../src/shared/api.js';
+import { onAuthChange, signOut, subscribeChanges, listEventsBetween, listTodos, addEvent, addTodo, addWeeklyEvents, addNote, subscribeNotes } from '../src/shared/api.js';
 import { periodLabel, isTimetable } from '../src/shared/timetable.js';
 import { renderAuthForm, createTodoList, attachDuePopup } from '../src/shared/ui.js';
-import { parseQuick } from '../src/shared/quickParse.js';
+import { parseQuick, parseNote } from '../src/shared/quickParse.js';
+import { createNotePad } from './notepad.js';
 import { findGaps } from '../src/shared/freeTime.js';
 import { toDateKey, addDays } from '../src/shared/dates.js';
 
@@ -13,6 +14,7 @@ const app = document.getElementById('app');
 const logoutButton = document.getElementById('logout');
 const todayTitle = document.getElementById('today-title');
 let unsubscribe = null;
+let unsubscribeNotes = null;
 let ticker = null;
 let currentUserId; // 처음엔 undefined여야 "로그아웃 상태"도 한 번 그려집니다
 
@@ -49,6 +51,7 @@ function renderPanel() {
       <input name="text" placeholder="예: 내일 7시 학원 / 금요일 수행평가" autocomplete="off" maxlength="200" autofocus />
       <p class="preview" aria-live="polite"></p>
     </form>
+    <section class="memo" id="memo"></section>
     <section class="now-next"></section>
     <section>
       <h2>오늘 일정</h2>
@@ -69,12 +72,19 @@ function renderPanel() {
   function showPreview() {
     const text = form.text.value.trim();
     if (!text) {
-      preview.innerHTML = '<span class="hint">시간을 쓰면 일정, 안 쓰면 할 일(「화요일 10교시」, 「매주 화요일 점심」도 돼요). Enter로 추가</span>';
+      preview.innerHTML = '<span class="hint">시간을 쓰면 일정, 안 쓰면 할 일(「화요일 10교시」, 「매주 화요일 점심」도 돼요). 「메모 …」는 메모장으로. Enter로 추가</span>';
+      return;
+    }
+    preview.innerHTML = '';
+    const chip = document.createElement('span');
+    const note = parseNote(text);
+    if (note) {
+      chip.className = 'chip note';
+      chip.textContent = `📝 메모 · ${note}`;
+      preview.append(chip);
       return;
     }
     const parsed = parseQuick(text);
-    preview.innerHTML = '';
-    const chip = document.createElement('span');
     if (parsed.kind === 'weekly') {
       chip.className = 'chip event';
       const when = parsed.allDay ? '종일' : periodLabel(parsed.startAt, parsed.endAt);
@@ -105,10 +115,26 @@ function renderPanel() {
     e.preventDefault();
     const text = form.text.value.trim();
     if (!text) return;
-    if (needsDue(parseQuick(text))) duePopup.open();
+    if (parseNote(text)) saveNote();
+    else if (needsDue(parseQuick(text))) duePopup.open();
     else save();
   });
   form.addEventListener('submit', (e) => e.preventDefault());
+
+  // 「메모 …」로 쓴 글은 할 일 대신 메모장에 넣습니다
+  async function saveNote() {
+    const body = parseNote(form.text.value);
+    if (!body) return;
+    try {
+      await addNote(body);
+      form.text.value = '';
+      showPreview();
+      preview.insertAdjacentHTML('afterbegin', '<span class="saved">✓ 메모장에 넣었어요</span>');
+      notePad.refresh();
+    } catch (err) {
+      preview.textContent = '메모 저장 실패: ' + err.message;
+    }
+  }
 
   async function save(due = null) {
     const text = form.text.value.trim();
@@ -231,6 +257,8 @@ function renderPanel() {
     renderEvents();
   }
 
+  const notePad = createNotePad(document.getElementById('memo'));
+
   const todoList = createTodoList(document.getElementById('todo-list'), {
     showForm: false,
     onChange: () => {
@@ -241,6 +269,7 @@ function renderPanel() {
   function refreshAll() {
     refreshEvents();
     todoList.refresh();
+    notePad.refresh();
   }
 
   refreshAll();
@@ -258,7 +287,7 @@ function renderPanel() {
   }, 60000);
   // Alt+S로 패널을 열면 클릭하지 않아도 바로 쓸 수 있게 입력 칸에 커서를 둡니다
   const focusInput = () => {
-    if (document.activeElement?.closest?.('#todo-list, .due-popup')) return; // 할 일 목록·마감일 팝업을 쓰는 중이면 그대로 둡니다
+    if (document.activeElement?.closest?.('#todo-list, .due-popup, .memo')) return; // 할 일 목록·마감일 팝업·메모장을 쓰는 중이면 그대로 둡니다
     window.focus();
     form.text.focus();
   };
@@ -268,7 +297,7 @@ function renderPanel() {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') focusInput();
   });
-  return refreshAll;
+  return { refreshAll, refreshNotes: notePad.refresh };
 }
 
 function updateTitle() {
@@ -284,6 +313,8 @@ onAuthChange((session) => {
 
   unsubscribe?.();
   unsubscribe = null;
+  unsubscribeNotes?.();
+  unsubscribeNotes = null;
   clearInterval(ticker);
   logoutButton.hidden = !session;
   notifyBackground();
@@ -292,9 +323,10 @@ onAuthChange((session) => {
     renderAuthForm(app);
     return;
   }
-  const refreshAll = renderPanel();
+  const { refreshAll, refreshNotes } = renderPanel();
   unsubscribe = subscribeChanges(() => {
     refreshAll();
     notifyBackground();
   });
+  unsubscribeNotes = subscribeNotes(refreshNotes);
 });

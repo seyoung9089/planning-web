@@ -188,6 +188,13 @@ export function parseEvening(input, now = new Date()) {
 }
 export const parsePeriodTodo = parseEvening;
 
+// "메모 엄마한테 전화", "메모: 준비물 확인"처럼 '메모'로 시작하면 할 일 대신 메모장에 넣을 글을 돌려줍니다.
+// '메모'로 시작하지 않거나 뒤에 아무 글도 없으면 null ("메모하기"처럼 붙여 쓴 말은 메모로 보지 않습니다)
+export function parseNote(input) {
+  const m = String(input ?? '').match(/^\s*메모\s*(?:[:：]\s*|\s+)([\s\S]*\S)/);
+  return m ? m[1].trim() : null;
+}
+
 export function parseQuick(input, now = new Date()) {
   const weekly = parseWeekly(input, now);
   if (weekly) return { kind: 'weekly', ...weekly };
