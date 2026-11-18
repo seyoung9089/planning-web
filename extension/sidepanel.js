@@ -1,7 +1,8 @@
 import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import '../src/shared/base.css';
 import './sidepanel.css';
-import { onAuthChange, signOut, subscribeChanges, listEventsBetween, listTodos, addEvent, addTodo, addWeeklyEvents, addNote, subscribeNotes } from '../src/shared/api.js';
+import { onAuthChange, signOut, subscribeChanges, listEventsBetween, listTodos, addEvent, addTodo, addWeeklyEvents, addNote, subscribeNotes, subscribeDiary } from '../src/shared/api.js';
+import { createDiary } from '../src/shared/diary.js';
 import { periodLabel, isTimetable } from '../src/shared/timetable.js';
 import { renderAuthForm, createTodoList, attachDuePopup } from '../src/shared/ui.js';
 import { parseQuick, parseNote } from '../src/shared/quickParse.js';
@@ -15,6 +16,7 @@ const logoutButton = document.getElementById('logout');
 const todayTitle = document.getElementById('today-title');
 let unsubscribe = null;
 let unsubscribeNotes = null;
+let unsubscribeDiary = null;
 let ticker = null;
 let currentUserId; // 처음엔 undefined여야 "로그아웃 상태"도 한 번 그려집니다
 
@@ -32,14 +34,6 @@ function dayName(date) {
   return base;
 }
 
-// "1시간 5분", "35분"
-function duration(ms) {
-  const total = Math.max(1, Math.round(ms / 60000));
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  return h ? `${h}시간${m ? ` ${m}분` : ''}` : `${m}분`;
-}
-
 // 백그라운드에 알림 예약을 다시 하라고 알려 줍니다
 function notifyBackground() {
   chrome.runtime?.sendMessage?.({ type: 'schedule-changed' }).catch?.(() => {});
@@ -52,7 +46,7 @@ function renderPanel() {
       <p class="preview" aria-live="polite"></p>
     </form>
     <section class="memo" id="memo"></section>
-    <section class="now-next"></section>
+    <section id="diary"></section>
     <section>
       <h2>오늘 일정</h2>
       <ul class="events"></ul>
@@ -64,7 +58,6 @@ function renderPanel() {
 
   const form = app.querySelector('.quick');
   const preview = app.querySelector('.preview');
-  const nowNext = app.querySelector('.now-next');
   const eventList = app.querySelector('.events');
   let todayEvents = [];
 
@@ -160,44 +153,6 @@ function renderPanel() {
     }
   }
 
-  // "지금 하는 일"과 "다음 일정"을 한눈에
-  function renderNowNext() {
-    const now = Date.now();
-    const timed = todayEvents.filter((ev) => !ev.all_day);
-    const current = timed.find((ev) => new Date(ev.start_at) <= now && new Date(ev.end_at) > now);
-    const next = timed.find((ev) => new Date(ev.start_at) > now);
-    nowNext.innerHTML = '';
-
-    if (current) {
-      const start = new Date(current.start_at);
-      const end = new Date(current.end_at);
-      const progress = Math.round(((now - start) / (end - start)) * 100);
-      nowNext.insertAdjacentHTML(
-        'beforeend',
-        `<div class="card now" style="--ev:${current.color || '#2383e2'}">
-          <span class="label">지금</span><strong class="title"></strong>
-          <span class="meta">${hm(end)}까지 · ${duration(end - now)} 남음</span>
-          <div class="bar"><span style="width:${progress}%"></span></div>
-        </div>`,
-      );
-      nowNext.lastElementChild.querySelector('.title').textContent = (current.kind === 'todo' ? '○ ' : '') + current.title;
-    }
-    if (next) {
-      const start = new Date(next.start_at);
-      nowNext.insertAdjacentHTML(
-        'beforeend',
-        `<div class="card next" style="--ev:${next.color || '#2383e2'}">
-          <span class="label">다음</span><strong class="title"></strong>
-          <span class="meta">${hm(start)} 시작 · <b>${duration(start - now)} 후</b></span>
-        </div>`,
-      );
-      nowNext.lastElementChild.querySelector('.title').textContent = (next.kind === 'todo' ? '○ ' : '') + next.title;
-    }
-    if (!current && !next) {
-      nowNext.innerHTML = '<div class="card empty">오늘 남은 일정이 없어요 🎉</div>';
-    }
-  }
-
   function renderEvents() {
     eventList.innerHTML = '';
     if (todayEvents.length === 0) {
@@ -253,11 +208,12 @@ function renderPanel() {
       if (a.all_day !== b.all_day) return a.all_day ? -1 : 1;
       return new Date(a.start_at) - new Date(b.start_at);
     });
-    renderNowNext();
     renderEvents();
   }
 
   const notePad = createNotePad(document.getElementById('memo'));
+  // 「지금/다음」 칸이 있던 자리: 접었다 펴는 일기장 (사이트 「일기」 탭과 같은 내용)
+  const diary = createDiary(document.getElementById('diary'), { collapsible: true, rows: 7 });
 
   const todoList = createTodoList(document.getElementById('todo-list'), {
     showForm: false,
@@ -270,10 +226,11 @@ function renderPanel() {
     refreshEvents();
     todoList.refresh();
     notePad.refresh();
+    diary.refresh();
   }
 
   refreshAll();
-  // 1분마다 "몇 분 남음"을 새로 계산하고, 날짜가 바뀌면 오늘 일정을 다시 읽습니다
+  // 1분마다 지난 일정을 흐리게 다시 그리고, 날짜가 바뀌면 오늘 일정을 다시 읽습니다
   let shownDay = toDateKey(new Date());
   ticker = setInterval(() => {
     updateTitle();
@@ -281,13 +238,12 @@ function renderPanel() {
       shownDay = toDateKey(new Date());
       refreshAll();
     } else {
-      renderNowNext();
       renderEvents();
     }
   }, 60000);
   // Alt+S로 패널을 열면 클릭하지 않아도 바로 쓸 수 있게 입력 칸에 커서를 둡니다
   const focusInput = () => {
-    if (document.activeElement?.closest?.('#todo-list, .due-popup, .memo')) return; // 할 일 목록·마감일 팝업·메모장을 쓰는 중이면 그대로 둡니다
+    if (document.activeElement?.closest?.('#todo-list, .due-popup, .memo, .diary')) return; // 할 일 목록·마감일 팝업·메모장·일기를 쓰는 중이면 그대로 둡니다
     window.focus();
     form.text.focus();
   };
@@ -297,7 +253,7 @@ function renderPanel() {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') focusInput();
   });
-  return { refreshAll, refreshNotes: notePad.refresh };
+  return { refreshAll, refreshNotes: notePad.refresh, refreshDiary: diary.refresh };
 }
 
 function updateTitle() {
@@ -315,6 +271,8 @@ onAuthChange((session) => {
   unsubscribe = null;
   unsubscribeNotes?.();
   unsubscribeNotes = null;
+  unsubscribeDiary?.();
+  unsubscribeDiary = null;
   clearInterval(ticker);
   logoutButton.hidden = !session;
   notifyBackground();
@@ -323,10 +281,11 @@ onAuthChange((session) => {
     renderAuthForm(app);
     return;
   }
-  const { refreshAll, refreshNotes } = renderPanel();
+  const { refreshAll, refreshNotes, refreshDiary } = renderPanel();
   unsubscribe = subscribeChanges(() => {
     refreshAll();
     notifyBackground();
   });
   unsubscribeNotes = subscribeNotes(refreshNotes);
+  unsubscribeDiary = subscribeDiary(refreshDiary);
 });

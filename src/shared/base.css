@@ -196,3 +196,25 @@ button.icon:hover { color: var(--danger); }
 /* 할 일 입력은 칸 하나만 둡니다. 마감일은 Enter 뒤에 뜨는 팝업에서 씁니다
    (오늘·내일·마감 기한 줄은 코드가 쓰므로 지우지 않고 화면에서만 숨깁니다) */
 .todo-add .due-row, .todo-add .due-hint { display: none; }
+
+/* ---- 일기장 (사이트 「일기」 탭 + 사이드 패널) ---- */
+/* 위: ‹ 쪽수·날짜 +/›   가운데: 글 칸   아래: 저장 상태·지우기 */
+.diary-body { display: grid; gap: 6px; }
+.diary-nav { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; }
+.diary-nav button { width: 30px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 19px; line-height: 1; color: var(--text); background: var(--bg); border: 1px solid var(--border-strong); border-radius: var(--radius); }
+.diary-nav button:hover:not(:disabled) { border-color: var(--text); background: var(--bg); }
+.diary-nav button:disabled { color: var(--faint); border-color: var(--border); cursor: default; }
+.diary-nav button.plus { font-size: 18px; font-weight: 500; }
+.diary-where { display: flex; align-items: baseline; justify-content: center; gap: 8px; min-width: 0; text-align: center; }
+.diary-page { font-size: 13px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.diary-date { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.diary-text { width: 100%; resize: vertical; padding: 10px 12px; font: inherit; font-size: 14.5px; line-height: 1.65;
+  color: var(--text); background: var(--bg); border: 1px solid var(--border-strong); border-radius: var(--radius); }
+.diary-text::placeholder { color: var(--faint); }
+.diary-text:focus { outline: none; border-color: var(--text); }
+.diary-foot { display: flex; align-items: center; justify-content: space-between; min-height: 20px; font-size: 12px; }
+.diary-status { color: var(--muted); }
+.diary-status.error { color: var(--danger); }
+.diary-del { padding: 1px 6px; border: none; background: none; font-size: 12px; color: var(--faint); }
+.diary-del:hover { background: none; color: var(--danger); }

@@ -306,6 +306,7 @@ export function createCalendar(container, { onChange, onDatesSet } = {}) {
   attachHoverTime(container, () => snapMinutes);
   return {
     refresh: () => calendar.refetchEvents(),
+    updateSize: () => calendar.updateSize(),
     gotoDate: (date) => calendar.gotoDate(date),
     changeView: (type) => calendar.changeView(type),
     today: () => calendar.today(),
