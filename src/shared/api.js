@@ -185,6 +185,43 @@ export function subscribeNotes(callback) {
   return () => supabase.removeChannel(channel);
 }
 
+// ---- 일기장 ----
+// 날짜와 상관없이 한 장씩 쌓이는 일기. 오래된 것부터 순서대로
+
+export async function listDiary() {
+  const { data, error } = await supabase
+    .from('diary_entries')
+    .select('id, body, created_at, updated_at')
+    .order('created_at', { ascending: true })
+    .limit(1000);
+  if (error) throw error;
+  return data;
+}
+
+export async function addDiary(body) {
+  const { data, error } = await supabase.from('diary_entries').insert({ body }).select('id, body, created_at, updated_at').single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateDiary(id, body) {
+  const { error } = await supabase.from('diary_entries').update({ body, updated_at: new Date().toISOString() }).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteDiary(id) {
+  const { error } = await supabase.from('diary_entries').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export function subscribeDiary(callback) {
+  const channel = supabase
+    .channel('my-diary')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'diary_entries' }, callback)
+    .subscribe();
+  return () => supabase.removeChannel(channel);
+}
+
 // ---- 실시간 동기화 ----
 // 다른 곳(사이트 ↔ 사이드 패널)에서 바뀌면 callback이 불립니다
 export function subscribeChanges(callback) {

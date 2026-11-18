@@ -1,7 +1,8 @@
 import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import './shared/base.css';
 import './styles.css';
-import { onAuthChange, signOut, subscribeChanges, RECOVERY_IN_URL, URL_AUTH_ERROR } from './shared/api.js';
+import { onAuthChange, signOut, subscribeChanges, subscribeDiary, RECOVERY_IN_URL, URL_AUTH_ERROR } from './shared/api.js';
+import { createDiary } from './shared/diary.js';
 import { renderAuthForm, renderNewPasswordForm, createTodoList } from './shared/ui.js';
 import { createCalendar } from './calendar.js';
 import { createMiniCalendar } from './miniCalendar.js';
@@ -11,6 +12,8 @@ import { openQuarterDialog } from './quarterDialog.js';
 
 const app = document.getElementById('app');
 let unsubscribe = null;
+let unsubscribeDiary = null;
+const TAB_KEY = 'main-tab';
 let currentUserId; // 처음엔 undefined여야 "로그아웃 상태"도 한 번 그려집니다
 // 비밀번호 재설정 링크로 들어오면 Supabase가 로그인까지 시켜 주지만, 새 비밀번호를 정하기 전에는 사이트를 보여 주지 않습니다
 let recovering = RECOVERY_IN_URL;
@@ -22,6 +25,8 @@ onAuthChange(function render(session, event) {
     currentUserId = 'recovery';
     unsubscribe?.();
     unsubscribe = null;
+    unsubscribeDiary?.();
+    unsubscribeDiary = null;
     app.className = 'logged-out';
     app.innerHTML = '<h1 class="brand">📅 planning-web</h1><div id="auth"></div>';
     renderNewPasswordForm(document.getElementById('auth'), {
@@ -41,6 +46,8 @@ onAuthChange(function render(session, event) {
 
   unsubscribe?.();
   unsubscribe = null;
+  unsubscribeDiary?.();
+  unsubscribeDiary = null;
 
   if (!session) {
     app.className = 'logged-out';
@@ -54,6 +61,10 @@ onAuthChange(function render(session, event) {
     <aside class="sidebar">
       <div class="brand-row">
         <span class="brand">📅 planning-web</span>
+        <div class="segmented main-tabs" role="tablist" aria-label="화면">
+          <button role="tab" data-tab="calendar">캘린더</button>
+          <button role="tab" data-tab="diary">일기</button>
+        </div>
       </div>
       <section class="side-section">
         <h2>할 일</h2>
@@ -92,6 +103,12 @@ onAuthChange(function render(session, event) {
         </div>
       </header>
       <div id="calendar"></div>
+    </main>
+    <main class="diary-main" hidden>
+      <header class="cal-header">
+        <h1>일기</h1>
+      </header>
+      <div class="diary-page-wrap"><section id="diary"></section></div>
     </main>`;
   app.querySelector('.email').textContent = session.user.email;
   app.querySelector('#logout').addEventListener('click', signOut);
@@ -136,6 +153,39 @@ onAuthChange(function render(session, event) {
   app.querySelector('[data-nav="today"]').addEventListener('click', () => calendar.today());
   app.querySelector('[data-nav="prev"]').addEventListener('click', () => calendar.prev());
   app.querySelector('[data-nav="next"]').addEventListener('click', () => calendar.next());
+
+  // 캘린더 ↔ 일기 탭. 마지막에 본 탭을 이 컴퓨터에 기억합니다
+  const diary = createDiary(document.getElementById('diary'), { rows: 18 });
+  const calMain = app.querySelector('.cal-main');
+  const diaryMain = app.querySelector('.diary-main');
+  const tabButtons = app.querySelectorAll('[data-tab]');
+  function showTab(tab) {
+    const isDiary = tab === 'diary';
+    if (!isDiary) diary.flush();
+    calMain.hidden = isDiary;
+    diaryMain.hidden = !isDiary;
+    for (const b of tabButtons) {
+      b.classList.toggle('active', b.dataset.tab === tab);
+      b.setAttribute('aria-selected', String(b.dataset.tab === tab));
+    }
+    try {
+      localStorage.setItem(TAB_KEY, tab);
+    } catch {
+      /* 기억 못 해도 괜찮습니다 */
+    }
+    if (isDiary) diaryMain.querySelector('.diary-text').focus();
+    else calendar.updateSize();
+  }
+  for (const b of tabButtons) b.addEventListener('click', () => showTab(b.dataset.tab));
+  let savedTab = 'calendar';
+  try {
+    savedTab = localStorage.getItem(TAB_KEY) === 'diary' ? 'diary' : 'calendar';
+  } catch {
+    /* 기본은 캘린더 */
+  }
+  showTab(savedTab);
+  diary.refresh();
+  unsubscribeDiary = subscribeDiary(diary.refresh);
 
   todoList.refresh();
   unsubscribe = subscribeChanges(() => {

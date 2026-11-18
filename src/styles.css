@@ -43,6 +43,19 @@ button.icon-btn:hover { background: var(--hover); color: var(--text); }
 .mini-grid .day.today::before { content: ''; position: absolute; inset: 2px 50%; translate: -12px 0; width: 24px;
   border-radius: 3px; background: var(--today); z-index: -1; }
 
+/* ---- 캘린더 / 일기 탭 ---- */
+.main-tabs button { padding: 3px 12px; font-size: 13px; }
+
+/* ---- 일기 탭: 가운데 넓은 종이 한 장 ---- */
+.diary-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow-y: auto; }
+.diary-page-wrap { width: 100%; max-width: 760px; margin: 0 auto; padding: 24px 24px 40px; }
+.diary-main .diary-nav { gap: 10px; padding-bottom: 10px; border-bottom: 1.5px solid var(--text); margin-bottom: 6px; }
+.diary-main .diary-nav button { width: 36px; height: 36px; font-size: 22px; }
+.diary-main .diary-page { font-size: 16px; }
+.diary-main .diary-date { font-size: 14px; }
+.diary-main .diary-text { font-size: 16px; line-height: 1.8; padding: 14px 16px; min-height: 360px; }
+.diary-main .diary-foot { font-size: 13px; }
+
 /* ---- 오른쪽 캘린더 ---- */
 .cal-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .cal-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px 12px; border-bottom: 1px solid var(--border); }
@@ -75,6 +88,8 @@ button.icon-btn:hover { background: var(--hover); color: var(--text); }
   .sidebar { order: 2; border-right: none; border-top: 1px solid var(--border); }
   .sidebar #mini-calendar { display: none; }
   .cal-main { height: 82vh; }
+  .diary-main { min-height: 70vh; }
+  .diary-page-wrap { padding: 16px 12px 24px; }
   .cal-header { flex-wrap: wrap; padding: 10px 12px; }
   .cal-header h1 { font-size: 19px; }
 }
