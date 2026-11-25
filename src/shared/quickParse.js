@@ -1,5 +1,6 @@
 import { addDays, toDateKey } from './dates.js';
 import { PERIODS, periodRange } from './timetable.js';
+import { splitPlace } from './quarterPlan.js';
 
 // "내일 7시 학원", "금요일 수행평가", "11/3 오후 3시~5시 독서실" 같은 한 줄을 읽어서
 // 시간이 있으면 일정, 없으면 마감일이 있는 할 일로 바꿉니다.
@@ -179,7 +180,17 @@ export function parseEvening(input, now = new Date()) {
   const text = ` ${input.trim()} `;
   const [period, rest] = takePeriod(text);
   if (!period) return null;
-  const [date, left] = takeDate(rest, now);
+  let [date, left] = takeDate(rest, now);
+  // 교시를 쓴 글에서는 "목 2교시"처럼 요일을 한 글자만 써도 요일로 봅니다
+  if (!date) {
+    const one = left.match(/(^|\s)([일월화수목금토])(\s|$)/);
+    if (one) {
+      const target = WEEKDAY[one[2]];
+      const today = startOfDay(now);
+      date = addDays(today, (target - today.getDay() + 7) % 7);
+      left = left.replace(one[0], ' ');
+    }
+  }
   const title = left.replace(/\s+/g, ' ').trim();
   const range = (day) => periodRange(toDateKey(day), period[0], period[1]);
   let day = date ?? startOfDay(now);
@@ -218,7 +229,8 @@ export function parseQuick(input, now = new Date()) {
     const day = date ?? startOfDay(now);
     const startAt = new Date(day.getTime() + time.start * 60000);
     const endAt = new Date(day.getTime() + time.end * 60000);
-    return { kind: 'event', title: title || '새 일정', startAt, endAt };
+    // "내일 7시 학원 @ 대치"처럼 @ 뒤에 쓰면 장소로 저장합니다
+    return { kind: 'event', ...splitPlace(title || '새 일정'), startAt, endAt };
   }
   return { kind: 'todo', title: title || input.trim(), dueDate: date };
 }

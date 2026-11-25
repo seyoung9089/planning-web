@@ -274,3 +274,26 @@ test('날짜 말 뒤 조사와 "다음다음주"도 알아본다', async () => {
   assert.equal(d(parseQuick('다다음주 화요일 10교시 영어', now).schedule.startAt), '12/8');
   assert.equal(t('다음에 하기').date, null);
 });
+
+test('입력 미리보기: 시간을 쓰면 일정, 교시는 할 일, 날짜가 없으면 마감일을 묻는다', async () => {
+  const { previewOf } = await import('../src/shared/preview.js');
+  const now = new Date('2026-11-25T10:00:00+09:00');
+  assert.equal(previewOf('내일 7시 학원', now).kind, 'event');
+  assert.match(previewOf('내일 7시 학원', now).text, /11\/26\(목\) 19:00–20:00 · 학원/);
+  assert.equal(previewOf('목 2교시 수학', now).kind, 'todo');
+  assert.match(previewOf('목 2교시 수학', now).text, /2교시 · 수학/);
+  assert.equal(previewOf('수행평가', now).needsDue, true);
+  assert.equal(previewOf('금요일 수행평가', now).needsDue, false);
+  assert.equal(previewOf('매일 영어 단어', now).kind, 'repeat');
+  assert.equal(previewOf('메모 준비물', now).kind, 'note');
+  assert.equal(previewOf('   ', now), null);
+});
+
+test('일정에 "@ 장소"를 쓰면 장소로 나뉜다', () => {
+  const now = new Date('2026-11-25T10:00:00+09:00');
+  const e = parseQuick('내일 7시 학원 @ 대치 본관', now);
+  assert.equal(e.kind, 'event');
+  assert.equal(e.title, '학원');
+  assert.equal(e.location, '대치 본관');
+  assert.equal(parseQuick('내일 7시 학원', now).location, null);
+});
