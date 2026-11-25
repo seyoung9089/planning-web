@@ -1,9 +1,9 @@
-import { signIn, signUp, sendPasswordReset, updatePassword, listTodos, addTodo, setTodoDone, deleteTodo, addWeeklyEvents } from './api.js';
+import { signIn, signUp, sendPasswordReset, updatePassword, listTodos, addTodo, setTodoDone, deleteTodo, addRepeatEvents, addRepeat, listRepeats, deleteRepeat, generateRepeatTodos } from './api.js';
 import { toDateKey, addDays, dueLabel, fromKeys } from './dates.js';
 import { periodLabel } from './timetable.js';
 import { openPeriodPicker } from './schedulePicker.js';
 import { sortTodos } from './todoOrder.js';
-import { parseEvening, parseTodoDate, parseDueInput, parseWeekly } from './quickParse.js';
+import { parseEvening, parseTodoDate, parseDueInput, parseRepeat, repeatLabel } from './quickParse.js';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -313,9 +313,15 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
       </div>
       <p class="due-hint" aria-live="polite"></p>
     </form>
-    <ul class="todos"></ul>`;
+    <ul class="todos"></ul>
+    <details class="repeats" hidden>
+      <summary></summary>
+      <ul class="repeat-list"></ul>
+    </details>`;
   const form = container.querySelector('form');
-  const list = container.querySelector('ul');
+  const list = container.querySelector('ul.todos');
+  const repeatBox = container.querySelector('.repeats');
+  const repeatList = container.querySelector('.repeat-list');
   // 마감 칸에 "목 2교시"처럼 교시까지 쓰면 마감일과 함께 그 시간(일정)도 기억해 둡니다
   let dueSchedule = null;
 
@@ -342,7 +348,7 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
     e.preventDefault();
     const title = form.title.value.trim();
     if (!title) return;
-    if (form.due.value || parseWeekly(title) || parseEvening(title) || parseTodoDate(title).date) form.requestSubmit();
+    if (form.due.value || parseRepeat(title) || parseEvening(title) || parseTodoDate(title).date) form.requestSubmit();
     else duePopup.open();
   });
   form.dueText.addEventListener('keydown', (e) => {
@@ -400,7 +406,48 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
     }
   }
 
+  // 반복 할 일은 하루에 한 번(날짜가 바뀌면 다시) 만들 때가 됐는지 확인합니다
+  let generatedFor = null;
+  async function makeRepeatTodos() {
+    const todayKey = toDateKey(new Date());
+    if (generatedFor === todayKey) return;
+    generatedFor = todayKey;
+    try {
+      await generateRepeatTodos();
+    } catch (err) {
+      generatedFor = null; // 실패하면 다음에 다시 시도합니다
+      console.warn('반복 할 일 만들기 실패', err);
+    }
+  }
+  // 날짜가 바뀌면(자정이 지나면) 열어 둔 화면에서도 새 반복 할 일이 생기게 합니다
+  setInterval(() => {
+    if (generatedFor && generatedFor !== toDateKey(new Date())) changed();
+  }, 60000);
+
+  // 목록 아래 「반복 할 일 N개」: 펼치면 규칙과 그만두기(×) 버튼
+  async function renderRepeats() {
+    let rules = [];
+    try {
+      rules = await listRepeats();
+    } catch {
+      // 표를 못 읽으면 칸을 숨깁니다
+    }
+    repeatBox.hidden = rules.length === 0;
+    repeatBox.querySelector('summary').textContent = `반복 할 일 ${rules.length}개`;
+    repeatList.innerHTML = '';
+    for (const rule of rules) {
+      const li = document.createElement('li');
+      li.innerHTML = `<span class="repeat-when"></span><span class="repeat-title"></span><button type="button" class="icon" title="반복 그만하기" aria-label="반복 그만하기">×</button>`;
+      li.querySelector('.repeat-when').textContent = repeatLabel(rule.weekdays);
+      li.querySelector('.repeat-title').textContent = rule.title;
+      li.querySelector('button').addEventListener('click', () => deleteRepeat(rule.id).then(changed));
+      repeatList.append(li);
+    }
+  }
+
   async function refresh() {
+    await makeRepeatTodos();
+    renderRepeats();
     const todos = sortTodos(await listTodos());
     list.innerHTML = '';
     if (todos.length === 0) {
@@ -418,6 +465,13 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
           <span class="due"></span>
         </div>`;
       li.querySelector('.title').textContent = todo.title;
+      if (todo.repeat_id) {
+        const mark = document.createElement('span');
+        mark.className = 'repeat-mark';
+        mark.title = '반복 할 일';
+        mark.textContent = '↻';
+        li.querySelector('.meta').append(mark);
+      }
       const due = dueLabel(todo.due_date);
       if (due && !todo.done) {
         const badge = li.querySelector('.due');
@@ -454,15 +508,23 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
     }
     // "저녁활동 1 수학 숙제", "화요일 10교시 영어"처럼 교시를 쓰면 그 시간에 하는 할 일로 저장합니다
     // "매주 화요일 점심 독서"처럼 '매주'를 쓰면 이번 쿼터 끝까지 매주 캘린더 일정으로 넣습니다
-    const weekly = parseWeekly(title);
-    if (weekly) {
+    // "매일 영어 단어", "매주 월수금 문제집"처럼 시간 없이 반복을 쓰면 반복 할 일로 등록합니다
+    const repeat = parseRepeat(title);
+    if (repeat) {
       try {
-        const { count, last } = await addWeeklyEvents(weekly);
+        let message;
+        if (repeat.kind === 'repeatTodo') {
+          await addRepeat(repeat);
+          message = `✓ 「${repeat.title}」 ${repeatLabel(repeat.weekdays)} 할 일로 등록했습니다 (그날이 되면 목록에 생겨요)`;
+        } else {
+          const { count, last } = await addRepeatEvents(repeat);
+          message = `✓ 「${repeat.title}」 ${repeatLabel(repeat.weekdays)} 일정 ${count}개를 ${last.getMonth() + 1}/${last.getDate()}까지 넣었습니다`;
+        }
         form.title.value = '';
         form.due.value = '';
         dueSchedule = null;
         syncDueButtons();
-        dueHint.textContent = `✓ 「${weekly.title}」 매주 ${'일월화수목금토'[weekly.startAt.getDay()]}요일 일정 ${count}개를 ${last.getMonth() + 1}/${last.getDate()}까지 넣었습니다`;
+        dueHint.textContent = message;
         changed();
       } catch (err) {
         dueHint.textContent = '저장 실패: ' + err.message;
