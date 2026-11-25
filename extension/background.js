@@ -4,6 +4,7 @@ import { listEventsBetween, listTodos } from '../src/shared/api.js';
 import { toDateKey } from '../src/shared/dates.js';
 import { isTimetable } from '../src/shared/timetable.js';
 import { remindMinutes } from '../src/shared/remind.js';
+import { SITE_ORIGIN } from '../src/shared/extensionId.js';
 
 const REMIND_BEFORE_MIN = 10; // 할 일(교시) 알림: 몇 분 전에 알릴지
 const DUE_REMINDER_HOUR = 18; // 오늘 마감인 할 일을 몇 시에 알릴지
@@ -13,7 +14,55 @@ chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create('sync', { periodInMinutes: 15 });
+  createMenus();
   syncReminders();
+});
+chrome.runtime.onStartup.addListener(createMenus);
+
+// ---- 오른쪽 클릭 → planning-web에 할 일로 추가 ----
+function createMenus() {
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({ id: 'add-page', title: 'planning-web에 할 일로 추가', contexts: ['page', 'link'] });
+    chrome.contextMenus.create({ id: 'add-selection', title: '「%s」를 planning-web 할 일로 추가', contexts: ['selection'] });
+  });
+}
+
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  // 고른 글자가 있으면 그것을, 없으면 페이지 제목을 할 일 이름으로 씁니다. 주소는 메모 칸에 들어갑니다
+  const text = (info.selectionText || tab?.title || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+  const url = info.linkUrl || info.pageUrl || tab?.url || '';
+  await chrome.storage.local.set({ pendingQuick: { text, url, at: Date.now() } });
+  // 메뉴를 누른 것은 사용자의 조작이라 패널을 열 수 있습니다. 저장은 사용자가 Enter를 눌러서 합니다
+  if (tab?.windowId !== undefined) chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {});
+});
+
+// ---- 사이트(https://planning-web.pages.dev)에서 오는 메시지 ----
+// 보낸 곳이 우리 사이트가 정확히 맞을 때만 받습니다. 그 밖의 주소는 조용히 무시합니다
+chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+  if (sender.origin !== SITE_ORIGIN) return false;
+  const type = message?.type;
+  if (type === 'ping') {
+    sendResponse({ version: chrome.runtime.getManifest().version });
+    return false;
+  }
+  if (type === 'session' && message.session?.access_token && message.session?.refresh_token) {
+    // 사이트에 로그인해 두면 패널도 같은 계정으로 로그인됩니다
+    supabase.auth
+      .setSession({ access_token: message.session.access_token, refresh_token: message.session.refresh_token })
+      .then(({ error }) => {
+        sendResponse({ ok: !error });
+        if (!error) syncReminders();
+      });
+    return true; // 답을 나중에 보냅니다
+  }
+  if (type === 'signout') {
+    supabase.auth.signOut().then(() => {
+      sendResponse({ ok: true });
+      syncReminders();
+    });
+    return true;
+  }
+  return false;
 });
 chrome.runtime.onStartup.addListener(syncReminders);
 

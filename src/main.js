@@ -11,6 +11,7 @@ import { openInstallGuide } from './installGuide.js';
 import { openQuarterDialog } from './quarterDialog.js';
 import { attachShortcuts, openShortcutHelp } from './shortcuts.js';
 import { setupInstallBanner } from './installBanner.js';
+import { syncSessionToExtension } from './extensionSync.js';
 
 const app = document.getElementById('app');
 let unsubscribe = null;
@@ -23,6 +24,8 @@ let recovering = RECOVERY_IN_URL;
 
 onAuthChange(function render(session, event) {
   if (event === 'PASSWORD_RECOVERY') recovering = true;
+  // 사이드 패널도 같은 계정으로 로그인·로그아웃되게 합니다 (확장이 안 깔렸으면 아무 일도 없습니다)
+  if (!recovering) syncSessionToExtension(session);
   if (recovering && session) {
     if (currentUserId === 'recovery') return;
     currentUserId = 'recovery';
