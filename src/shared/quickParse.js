@@ -26,9 +26,12 @@ function addMonths(date, n) {
 // 주·달을 기준으로 하는 말: "다음주", "다다음주", "다다다음주", "담주", "이번 달", "다음달", "다다음달",
 // "2주 뒤", "일주일 후", "한 달 뒤", "3개월 후", "3일 뒤", "이틀 후"
 // 뒤에 요일("다다음주 화", "2달 뒤 화요일")이나 날짜("다음달 5일")가 붙으면 함께 읽습니다
+// 날짜 말 뒤에 붙는 조사: "화요일까지", "다다음주에", "금요일 전까지"
+const P = String.raw`(?:\s?전까지|\s?전에|까지|안에|에는|에)?`;
+
 const REL = new RegExp(
-  String.raw`(^|\s)(?:(이번|(다{0,2})(?:다음|담))\s?(주|달)|(일주일)\s?(?:뒤|후|있다가)|(\d{1,3}|한|두|세|네|다섯|여섯|일곱|여덟|아홉|열|하루|이틀|사흘|나흘)\s?(주일?|주|달|개월|일)?\s?(?:뒤|후|있다가))` +
-    String.raw`(?:\s?(?:([일월화수목금토])(?:요일)?|(\d{1,2})일))?(?=\s|$)`,
+  String.raw`(^|\s)(?:(이번|((?:다음\s?|담\s?|다){0,2})(?:다음|담))\s?(주|달)(?:에)?|(일주일)\s?(?:뒤|후|있다가)|(\d{1,3}|한|두|세|네|다섯|여섯|일곱|여덟|아홉|열|하루|이틀|사흘|나흘)\s?(주일?|주|달|개월|일)?\s?(?:뒤|후|있다가))` +
+    String.raw`(?:\s?(?:([일월화수목금토])(?:요일)?|(\d{1,2})일))?` + P + String.raw`(?=\s|$)`,
 );
 
 function relativeDate(m, today) {
@@ -38,7 +41,8 @@ function relativeDate(m, today) {
   let calendar = false; // "다음달", "이번 주"처럼 달력 칸(주·달) 단위로 세는지
   if (word) {
     unit = namedUnit === '주' ? 'week' : 'month';
-    n = word === '이번' ? 0 : extraDa.length + 1;
+    // "다다음주", "다음다음주", "다음 다음 주", "담담주" 모두 앞에 붙은 다·다음·담 개수만큼 더 갑니다
+    n = word === '이번' ? 0 : (extraDa.match(/다음|담|다/g) ?? []).length + 1;
     calendar = true;
   } else if (oneWeek) {
     unit = 'week';
@@ -94,17 +98,17 @@ function takeDate(text, now) {
     if (date && !isNaN(date)) return [date, text.replace(rel[0], rel[1] || ' ')];
   }
   const rules = [
-    [/(^|\s)오늘(\s|$)/, () => today],
-    [/(^|\s)내일(\s|$)/, () => addDays(today, 1)],
-    [/(^|\s)모레(\s|$)/, () => addDays(today, 2)],
-    [/(^|\s)([일월화수목금토])요일?(\s|$)/, (m) => {
+    [new RegExp(String.raw`(^|\s)오늘${P}(\s|$)`), () => today],
+    [new RegExp(String.raw`(^|\s)내일${P}(\s|$)`), () => addDays(today, 1)],
+    [new RegExp(String.raw`(^|\s)모레${P}(\s|$)`), () => addDays(today, 2)],
+    [new RegExp(String.raw`(^|\s)([일월화수목금토])요일?${P}(\s|$)`), (m) => {
       // 그냥 "금요일"은 오늘 포함 가장 가까운 금요일
       const target = WEEKDAY[m[2]];
       return addDays(today, (target - today.getDay() + 7) % 7);
     }],
-    [/(^|\s)(\d{1,2})[/.](\d{1,2})(\s|$)/, (m) => monthDay(today, Number(m[2]), Number(m[3]))],
-    [/(^|\s)(\d{1,2})월\s?(\d{1,2})일(\s|$)/, (m) => monthDay(today, Number(m[2]), Number(m[3]))],
-    [/(^|\s)(\d{1,2})일(\s|$)/, (m) => {
+    [new RegExp(String.raw`(^|\s)(\d{1,2})[/.](\d{1,2})${P}(\s|$)`), (m) => monthDay(today, Number(m[2]), Number(m[3]))],
+    [new RegExp(String.raw`(^|\s)(\d{1,2})월\s?(\d{1,2})일${P}(\s|$)`), (m) => monthDay(today, Number(m[2]), Number(m[3]))],
+    [new RegExp(String.raw`(^|\s)(\d{1,2})일${P}(\s|$)`), (m) => {
       // "3일"만 쓰면 이번 달 3일, 이미 지났으면 다음 달 3일
       const d = new Date(today.getFullYear(), today.getMonth(), Number(m[2]));
       return d < today ? new Date(today.getFullYear(), today.getMonth() + 1, Number(m[2])) : d;
@@ -196,8 +200,8 @@ export function parseNote(input) {
 }
 
 export function parseQuick(input, now = new Date()) {
-  const weekly = parseWeekly(input, now);
-  if (weekly) return { kind: 'weekly', ...weekly };
+  const repeat = parseRepeat(input, now);
+  if (repeat) return repeat;
   let text = ` ${input.trim()} `;
   const [time, afterTime] = takeTime(text);
   text = afterTime;
@@ -231,6 +235,9 @@ export function parseTodoDate(input, now = new Date()) {
 // 날짜 말 말고 다른 글자가 남으면 잘못 쓴 것으로 보고 null
 export function parseDueText(input, now = new Date()) {
   let cleaned = String(input ?? '').replace(/\([일월화수목금토]\)/g, ' ').trim();
+  if (!cleaned) return null;
+  // "금까지", "화요일 전까지"처럼 끝에 붙은 조사는 떼고 봅니다
+  cleaned = cleaned.replace(/\s?(?:전까지|전에)$|(?:까지|안에|에는|에)$/, '').trim();
   if (!cleaned) return null;
   // 마감 칸에서는 "화", "다음주 금"처럼 요일 한 글자만 써도 알아봅니다
   if (/(^|\s|주|달|뒤|후)[일월화수목금토]$/.test(cleaned)) cleaned += '요일';
@@ -289,19 +296,43 @@ export function parseDueInput(input, now = new Date()) {
   return { date, schedule: pick(date) };
 }
 
-// "매주 화요일 점심 독서", "매주 목 10교시 회의", "매주 금 오후 4시 학원"처럼 '매주'를 쓰면
-// 첫 번째 날의 일정 { title, startAt, endAt, allDay }을 돌려줍니다 (매주 반복은 저장할 때 쿼터 끝까지 펼칩니다).
-// 요일을 안 쓰면 오늘 요일, 시간·교시를 안 쓰면 그 요일 종일 일정. '매주'가 없으면 null
-const WEEKLY = /(^|\s)매\s?주\s?(?:([일월화수목금토])(?:요일)?)?(?=\s|$)/;
-export function parseWeekly(input, now = new Date()) {
+// ---- 반복: "매일", "매주 월요일", "매주 월수금", "평일마다", "주말마다", "화요일마다" ----
+// 시간·교시를 쓰면 일정(캘린더에 쿼터 끝까지 매주 펼침), 안 쓰면 반복 할 일(그날이 되면 할 일 목록에 생김).
+// 돌려주는 값:
+//  - 반복 할 일: { kind: 'repeatTodo', title, weekdays }
+//  - 반복 일정: { kind: 'weekly', title, weekdays, list: [요일마다 첫 번째 { startAt, endAt, allDay }], ...가장 빠른 첫 일정 }
+//  - '매일·매주·…마다'가 없으면 null
+const DAY = '[일월화수목금토]';
+const DAYS = String.raw`${DAY}(?:요일)?(?:\s?[,·/]?\s?${DAY}(?:요일)?)*`;
+const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+const REPEAT_RULES = [
+  [new RegExp(String.raw`(^|\s)(?:(?:매\s?주|매\s?일)\s?평일(?:\s?마다)?|평일\s?마다)(?=\s|$)`), () => [1, 2, 3, 4, 5]],
+  [new RegExp(String.raw`(^|\s)(?:(?:매\s?주|매\s?일)\s?주말(?:\s?마다)?|주말\s?마다)(?=\s|$)`), () => [0, 6]],
+  [new RegExp(String.raw`(^|\s)매\s?주(?:\s?(${DAYS}))?(?:\s?마다)?(?=\s|$)`), (m, today) => (m[2] ? daysIn(m[2]) : [today.getDay()])],
+  [new RegExp(String.raw`(^|\s)(${DAYS})\s?마다(?=\s|$)`), (m) => daysIn(m[2])],
+  [/(^|\s)(?:매일\s?매일|매\s?일|날마다|하루\s?마다)(?=\s|$)/, () => ALL_DAYS],
+];
+// "월수금", "월·수", "화요일" → [1, 3, 5] ("요일"의 '일'을 일요일로 읽지 않도록 먼저 뺍니다)
+function daysIn(text) {
+  const set = new Set(text.replace(/요일/g, '').match(/[일월화수목금토]/g).map((c) => WEEKDAY[c]));
+  return [...set].sort((a, b) => a - b);
+}
+
+export function parseRepeat(input, now = new Date()) {
   const text = ` ${String(input ?? '').trim()} `;
-  const m = text.match(WEEKLY);
-  if (!m) return null;
   const today = startOfDay(now);
-  const target = m[2] ? WEEKDAY[m[2]] : today.getDay();
-  let day = addDays(today, (target - today.getDay() + 7) % 7);
-  let rest = text.replace(m[0], ' ');
-  let at;
+  let weekdays = null;
+  let rest = text;
+  for (const [re, pick] of REPEAT_RULES) {
+    const m = text.match(re);
+    if (m) {
+      weekdays = pick(m, today);
+      rest = text.replace(m[0], ' ');
+      break;
+    }
+  }
+  if (!weekdays) return null;
+  let at = null;
   const [period, afterPeriod] = takePeriod(rest);
   if (period) {
     rest = afterPeriod;
@@ -311,13 +342,32 @@ export function parseWeekly(input, now = new Date()) {
     if (time) {
       rest = afterTime;
       at = (d) => ({ startAt: new Date(d.getTime() + time.start * 60000), endAt: new Date(d.getTime() + time.end * 60000), allDay: false });
-    } else {
-      at = (d) => ({ startAt: d, endAt: addDays(d, 1), allDay: true });
     }
   }
-  let first = at(day);
-  // 오늘 그 시간이 이미 끝났으면 다음 주부터
-  if (!first.allDay && first.endAt <= now) first = at(addDays(day, 7));
   const title = rest.replace(/\s+/g, ' ').trim();
-  return { title: title || '매주 일정', ...first };
+  if (!at) return { kind: 'repeatTodo', title: title || input.trim(), weekdays };
+  // 요일마다 첫 번째 일정 (오늘 그 시간이 이미 끝났으면 다음 주부터)
+  const list = weekdays
+    .map((w) => {
+      const day = addDays(today, (w - today.getDay() + 7) % 7);
+      const first = at(day);
+      return first.endAt <= now ? at(addDays(day, 7)) : first;
+    })
+    .sort((a, b) => a.startAt - b.startAt);
+  return { kind: 'weekly', title: title || '반복 일정', weekdays, list, ...list[0] };
+}
+
+// 예전 이름: 반복 '일정'(시간·교시가 있는 반복)만 돌려줍니다
+export function parseWeekly(input, now = new Date()) {
+  const r = parseRepeat(input, now);
+  return r?.kind === 'weekly' ? r : null;
+}
+
+// [1,3,5] → "매주 월·수·금", 모든 요일 → "매일", 월~금 → "평일마다", 토·일 → "주말마다"
+export function repeatLabel(weekdays) {
+  const key = [...weekdays].sort((a, b) => a - b).join(',');
+  if (key === '0,1,2,3,4,5,6') return '매일';
+  if (key === '1,2,3,4,5') return '평일마다';
+  if (key === '0,6') return '주말마다';
+  return '매주 ' + weekdays.map((w) => '일월화수목금토'[w]).join('·');
 }

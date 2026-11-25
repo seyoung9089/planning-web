@@ -3,6 +3,7 @@ export { RECOVERY_IN_URL, URL_AUTH_ERROR } from './supabase.js';
 import { toDateKey } from './dates.js';
 import { QUARTER, weeklyRepeats } from './timetable.js';
 import { quarterRange, DEFAULT_WEEKS } from './quarterPlan.js';
+import { dueOccurrence } from './repeat.js';
 
 // ---- 로그인 ----
 
@@ -229,6 +230,7 @@ export function subscribeChanges(callback) {
     .channel('my-changes')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'todos' }, callback)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, callback)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'todo_repeats' }, callback)
     .subscribe();
   return () => supabase.removeChannel(channel);
 }
@@ -281,4 +283,58 @@ export async function addWeeklyEvents({ title, startAt, endAt, allDay }) {
   ].map((r) => ({ title, startAt: r.startAt, endAt: r.endAt, allDay, color: null, memo: null, isTimetable: false }));
   await addEvents(list);
   return { count: list.length, last: list[list.length - 1].startAt, range };
+}
+
+// 시간·교시가 있는 반복("매주 월수 점심 독서"): 요일마다 쿼터 끝까지 매주 일정을 넣습니다
+export async function addRepeatEvents({ title, list }) {
+  let count = 0;
+  let last = null;
+  for (const first of list) {
+    const r = await addWeeklyEvents({ title, ...first });
+    count += r.count;
+    if (!last || r.last > last) last = r.last;
+  }
+  return { count, last };
+}
+
+// ---- 반복 할 일 ("매일 영어 단어", "매주 월수금 수학 문제집") ----
+// 규칙만 저장해 두고, 그날이 되면 사이트나 사이드 패널을 열 때 할 일을 하나씩 만듭니다
+
+export async function listRepeats() {
+  const { data, error } = await supabase.from('todo_repeats').select('*').order('created_at');
+  if (error) throw error;
+  return data;
+}
+
+// 규칙을 저장하고, 오늘이 반복하는 날이면 오늘 할 일도 바로 만듭니다
+export async function addRepeat({ title, weekdays }) {
+  const { error } = await supabase.from('todo_repeats').insert({ title, weekdays, start_date: toDateKey(new Date()) });
+  if (error) throw error;
+  await generateRepeatTodos();
+}
+
+// 반복 그만하기 (이미 만들어진 할 일은 그대로 둡니다)
+export async function deleteRepeat(id) {
+  const { error } = await supabase.from('todo_repeats').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// 만들 때가 된 반복 할 일을 만듭니다. 사이트와 패널이 동시에 만들어도
+// (repeat_id, due_date)가 겹치면 DB가 하나만 받아서 두 번 생기지 않습니다. 만든 개수를 돌려줍니다
+export async function generateRepeatTodos(now = new Date()) {
+  const rules = await listRepeats();
+  const todayKey = toDateKey(now);
+  let made = 0;
+  for (const rule of rules) {
+    const key = dueOccurrence(rule, todayKey);
+    if (!key) continue;
+    const { error } = await supabase
+      .from('todos')
+      .upsert({ title: rule.title, due_date: key, repeat_id: rule.id }, { onConflict: 'repeat_id,due_date', ignoreDuplicates: true });
+    if (error) throw error;
+    const { error: e2 } = await supabase.from('todo_repeats').update({ last_generated: key }).eq('id', rule.id);
+    if (e2) throw e2;
+    made++;
+  }
+  return made;
 }

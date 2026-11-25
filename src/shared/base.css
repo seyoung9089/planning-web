@@ -218,3 +218,17 @@ button.icon:hover { color: var(--danger); }
 .diary-status.error { color: var(--danger); }
 .diary-del { padding: 1px 6px; border: none; background: none; font-size: 12px; color: var(--faint); }
 .diary-del:hover { background: none; color: var(--danger); }
+
+/* ---- 반복 할 일 ---- */
+.repeat-mark { font-size: 12px; color: var(--muted); }
+.repeats { margin-top: 10px; font-size: 13px; color: var(--muted); }
+.repeats[hidden] { display: none; }
+.repeats summary { cursor: pointer; padding: 4px 6px; user-select: none; }
+.repeats summary:hover { color: var(--text); }
+.repeat-list { list-style: none; margin: 2px 0 0; padding: 0; border-top: 1px solid var(--border); }
+.repeat-list li { display: flex; align-items: center; gap: 8px; padding: 6px; border-bottom: 1px solid var(--border); }
+.repeat-list li:hover { background: var(--hover); }
+.repeat-list .repeat-when { flex: none; color: var(--primary); font-weight: 600; }
+.repeat-list .repeat-title { flex: 1; min-width: 0; color: var(--text); overflow-wrap: anywhere; }
+.repeat-list button.icon { padding: 0 6px; font-size: 16px; line-height: 1; color: var(--faint); border: none; background: none; cursor: pointer; }
+.repeat-list button.icon:hover { color: var(--danger); }

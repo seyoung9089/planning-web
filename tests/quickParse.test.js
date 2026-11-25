@@ -147,12 +147,8 @@ test('매주: "매주 화요일 점심"은 첫 화요일 점심 일정, 반복�
   assert.equal(hm(r.startAt), '11/5 17:20');
   r = parseWeekly('매주 금요일 오후 4시 학원', now);
   assert.equal(`${hm(r.startAt)}-${hm(r.endAt)}`, '11/6 16:00-11/6 17:00');
-  r = parseWeekly('매주 월요일 단어시험', now);
-  assert.equal(r.allDay, true);
-  assert.equal(hm(r.startAt), '11/9 00:00');
-  r = parseWeekly('매주 화학 공부', now); // "화학"의 화는 요일이 아님 → 오늘 요일
-  assert.equal(r.title, '화학 공부');
-  assert.equal(r.startAt.getDay(), 3);
+  // 시간·교시가 없으면 반복 '일정'이 아니라 반복 할 일
+  assert.equal(parseWeekly('매주 월요일 단어시험', now), null);
   assert.equal(parseWeekly('화요일 점심 독서', now), null);
   assert.equal(parseQuick('매주 화요일 점심 독서', now).kind, 'weekly');
 });
@@ -227,4 +223,54 @@ test('「메모」로 시작하면 메모장으로', async () => {
   assert.equal(parseNote('  메모: 준비물 확인 '), '준비물 확인');
   assert.equal(parseNote('메모：내일 우산'), '내일 우산');
   for (const no of ['메모', '메모 ', '메모하기', '수학 메모 정리', '내일 메모 쓰기']) assert.equal(parseNote(no), null, no);
+});
+
+test('반복 할 일: 시간 없이 매일·매주·요일마다를 쓰면 반복 할 일', async () => {
+  const { parseRepeat, parseQuick, repeatLabel } = await import('../src/shared/quickParse.js');
+  const now = new Date(2026, 10, 25, 13, 0); // 11/25(수)
+  const r = (s) => parseRepeat(s, now);
+  assert.deepEqual(r('매일 영어 단어 30개'), { kind: 'repeatTodo', title: '영어 단어 30개', weekdays: [0, 1, 2, 3, 4, 5, 6] });
+  assert.deepEqual(r('매주 월요일 단어시험 공부').weekdays, [1]);
+  assert.equal(r('매주 월요일 단어시험 공부').title, '단어시험 공부');
+  assert.deepEqual(r('매주 월수금 수학 문제집').weekdays, [1, 3, 5]);
+  assert.deepEqual(r('매주 월, 목 운동').weekdays, [1, 4]);
+  assert.deepEqual(r('화요일마다 독서 기록').weekdays, [2]);
+  assert.deepEqual(r('월·수마다 스피킹').weekdays, [1, 3]);
+  assert.deepEqual(r('평일마다 플래너 쓰기').weekdays, [1, 2, 3, 4, 5]);
+  assert.deepEqual(r('매주 주말 방 청소').weekdays, [0, 6]);
+  assert.deepEqual(r('매주 일요일 일기').weekdays, [0]); // '요일'의 일을 일요일로 두 번 읽지 않음
+  assert.deepEqual(r('매주 일기 쓰기').weekdays, [3]); // 요일 없으면 오늘 요일, "일기"는 제목
+  assert.equal(r('매주 일기 쓰기').title, '일기 쓰기');
+  assert.equal(r('매일 영어 단어').kind, 'repeatTodo');
+  assert.equal(parseQuick('매일 영어 단어', now).kind, 'repeatTodo');
+  assert.equal(r('영어 단어'), null);
+  assert.equal(r('일기 쓰기'), null);
+  // 시간·교시가 있으면 반복 일정 (요일마다 첫 번째)
+  const w = r('매주 월수 점심 독서');
+  assert.equal(w.kind, 'weekly');
+  assert.deepEqual(w.list.map((x) => `${x.startAt.getMonth() + 1}/${x.startAt.getDate()} ${x.startAt.getHours()}:${x.startAt.getMinutes()}`), ['11/25 12:10', '11/30 12:10'] );
+  assert.equal(repeatLabel([0, 1, 2, 3, 4, 5, 6]), '매일');
+  assert.equal(repeatLabel([1, 2, 3, 4, 5]), '평일마다');
+  assert.equal(repeatLabel([1, 3, 5]), '매주 월·수·금');
+});
+
+test('날짜 말 뒤 조사와 "다음다음주"도 알아본다', async () => {
+  const { parseTodoDate, parseDueInput, parseQuick } = await import('../src/shared/quickParse.js');
+  const now = new Date(2026, 10, 25, 13, 0); // 11/25(수)
+  const d = (x) => `${x.getMonth() + 1}/${x.getDate()}`;
+  const t = (s) => parseTodoDate(s, now);
+  assert.deepEqual([d(t('다다음주 화요일까지 숙제').date), t('다다음주 화요일까지 숙제').title], ['12/8', '숙제']);
+  assert.equal(d(t('다음다음주 화 숙제').date), '12/8');
+  assert.equal(d(t('다음 다음주 화 숙제').date), '12/8');
+  assert.equal(d(t('담담주 금 발표').date), '12/11');
+  assert.equal(d(t('다다음주에 발표').date), '12/9');
+  assert.equal(d(t('금요일까지 보고서').date), '11/27');
+  assert.equal(d(t('내일까지 숙제').date), '11/26');
+  assert.equal(d(t('12/8까지 숙제').date), '12/8');
+  assert.equal(d(t('2주 뒤에 시험').date), '12/9');
+  assert.equal(d(parseDueInput('다다음주 화요일까지', now).date), '12/8');
+  assert.equal(d(parseDueInput('금까지', now).date), '11/27');
+  assert.equal(d(parseDueInput('다음다음주 목', now).date), '12/10');
+  assert.equal(d(parseQuick('다다음주 화요일 10교시 영어', now).schedule.startAt), '12/8');
+  assert.equal(t('다음에 하기').date, null);
 });
