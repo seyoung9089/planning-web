@@ -218,7 +218,6 @@ button.icon-btn:hover { background: var(--hover); color: var(--text); }
 .install-dialog form { display: flex; justify-content: flex-end; }
 
 /* ---- 쿼터 시간표 등록 창 ---- */
-#quarter + #install { margin-top: -12px; }
 .quarter-dialog { border: 1px solid var(--border-strong); border-radius: 6px; padding: 22px; width: min(1100px, calc(100vw - 32px));
   max-height: calc(100vh - 32px); background: var(--bg); color: var(--text); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28); }
 .quarter-dialog::backdrop { background: rgba(0, 0, 0, 0.3); }
@@ -272,3 +271,49 @@ button.icon-btn:hover { background: var(--hover); color: var(--text); }
 .quarter-dialog .message:empty { display: none; }
 .quarter-dialog .actions { display: flex; gap: 8px; }
 .quarter-dialog .actions .spacer { flex: 1; }
+
+/* ---- ⚙ 설정 메뉴 (사이드바 맨 아래 이메일 옆) ---- */
+.settings { position: relative; flex: none; }
+.settings-menu { position: absolute; right: 0; bottom: calc(100% + 6px); z-index: 30; min-width: 220px; display: grid; padding: 4px;
+  background: var(--bg); border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12); }
+.settings-menu[hidden] { display: none; }
+.settings-menu button { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 7px 10px;
+  border: none; border-radius: 2px; background: none; text-align: left; font-size: 13.5px; color: var(--text); }
+.settings-menu button:hover, .settings-menu button:focus-visible { background: var(--hover); }
+.settings-menu #logout { color: var(--muted); }
+.settings-menu hr { width: 100%; margin: 4px 0; border: none; border-top: 1px solid var(--border); }
+.settings-menu kbd, .shortcut-dialog kbd { font: inherit; font-size: 11.5px; padding: 0 5px; border: 1px solid var(--border-strong); border-radius: 3px; background: var(--surface); color: var(--muted); }
+
+/* 사이드바: 할 일 칸이 남는 높이를 다 차지합니다 */
+.sidebar { gap: 14px; }
+.side-section { flex: 1 1 auto; min-height: 260px; }
+
+/* 처음 한 번만 뜨는 패널 설치 안내 */
+.install-banner { display: flex; align-items: stretch; border: 1px solid var(--border-strong); border-radius: var(--radius); }
+.install-banner[hidden] { display: none; }
+.install-banner .banner-main { flex: 1; min-width: 0; padding: 7px 10px; border: none; background: none; text-align: left; font-size: 12.5px; color: var(--text); line-height: 1.45; }
+.install-banner .banner-main:hover { background: var(--hover); }
+.install-banner kbd { font: inherit; font-size: 11px; padding: 0 4px; border: 1px solid var(--border-strong); border-radius: 3px; }
+.install-banner .banner-close { padding: 0 10px; border: none; border-left: 1px solid var(--border); border-radius: 0; background: none; color: var(--muted); font-size: 16px; }
+.install-banner .banner-close:hover { color: var(--text); }
+
+/* ---- 단축키 창 ---- */
+.shortcut-dialog { border: 1px solid var(--border-strong); border-radius: 6px; padding: 22px; width: min(380px, calc(100vw - 32px));
+  background: var(--bg); color: var(--text); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28); }
+.shortcut-dialog::backdrop { background: rgba(0, 0, 0, 0.25); }
+.shortcut-dialog h2 { font-size: 18px; margin-bottom: 12px; }
+.shortcut-dialog dl { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0; align-items: center; }
+.shortcut-dialog dt { white-space: nowrap; font-size: 13px; color: var(--muted); }
+.shortcut-dialog dd { margin: 0; font-size: 14px; }
+.shortcut-dialog kbd { font-size: 12.5px; color: var(--text); padding: 1px 7px; }
+.shortcut-dialog .note { font-size: 12.5px; color: var(--muted); margin: 14px 0 12px; }
+.shortcut-dialog form { display: flex; justify-content: flex-end; }
+
+@media (max-width: 860px) {
+  .side-section { min-height: 0; overflow: visible; }
+}
+@media (max-width: 860px) {
+  .cal-controls { flex-wrap: wrap; row-gap: 6px; }
+  .cal-controls > button, .snap-select { white-space: nowrap; }
+  .snap-select span { display: none; }
+}

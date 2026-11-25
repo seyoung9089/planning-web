@@ -13,6 +13,7 @@ import { isTimetable, TIMETABLE_MEMO } from './shared/timetable.js';
 const VIEW_KEY = 'planning-web:view';
 const FULL_DAY_KEY = 'planning-web:full-day';
 const SNAP_KEY = 'planning-web:snap-minutes';
+const SHOW_DONE_KEY = 'planning-web:show-done';
 export const SNAP_CHOICES = [5, 10, 30, 60];
 // 평소에는 학교 일과 시간(아침 8:30 ~ 밤 10:00)만 보여 줍니다. 저녁 9시 줄에도 시간 글자가 붙도록 10시까지 둡니다
 const SCHOOL_HOURS = { slotMinTime: '08:30:00', slotMaxTime: '22:00:00', scrollTime: '08:30:00' };
@@ -84,6 +85,15 @@ function attachHoverTime(container, getSnap) {
   container.addEventListener('mouseleave', () => (tip.hidden = true));
 }
 
+// 끝낸 할 일을 캘린더에 보일지 (기본은 숨김: 줄 그은 할 일이 진짜 일정 자리를 먼저 차지하지 않게)
+function savedShowDone() {
+  try {
+    return localStorage.getItem(SHOW_DONE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 function savedView() {
   try {
     return localStorage.getItem(VIEW_KEY);
@@ -105,7 +115,7 @@ function eventToCalendar(row) {
     // 수업 시간표는 지나간 것도 흐리게 하지 않고, 실수로 끌어서 옮기지 않게 고정합니다
     classNames: ['ev', timetable ? 'timetable' : past ? 'past' : ''],
     ...(timetable ? { startEditable: false, durationEditable: false } : {}),
-    extendedProps: { kind: 'event', row, color: row.color || DEFAULT_COLOR },
+    extendedProps: { kind: 'event', row, color: row.color || DEFAULT_COLOR, doneRank: 0 },
   };
 }
 
@@ -117,7 +127,8 @@ function todoToCalendar(row) {
     id: 'todo-' + row.id,
     title: (row.done ? '✓ ' : '○ ') + row.title,
     classNames: ['todo-item', row.done ? 'done' : '', overdue ? 'overdue' : ''],
-    extendedProps: { kind: 'todo', row },
+    // 끝낸 할 일은 같은 날 칸의 맨 아래로 보냅니다
+    extendedProps: { kind: 'todo', row, doneRank: row.done ? 1 : 0 },
   };
   if (row.scheduled_start) {
     return { ...base, start: row.scheduled_start, end: row.scheduled_end, allDay: false, classNames: [...base.classNames, 'scheduled'] };
@@ -135,7 +146,7 @@ function topTodoToCalendar(row, todayKey, rank) {
     allDay: true,
     editable: false,
     classNames: ['todo-item', 'top'],
-    extendedProps: { kind: 'todo', row, rank },
+    extendedProps: { kind: 'todo', row, rank, doneRank: 0 },
   };
 }
 
@@ -166,6 +177,7 @@ export function createCalendar(container, { onChange, onDatesSet } = {}) {
   let fullDay = savedFullDay();
   let snapMinutes = savedSnap();
   let shownAsMonth = savedView() === 'dayGridMonth';
+  let showDone = savedShowDone();
   const calendar = new Calendar(container, {
     plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
     locale: koLocale,
@@ -177,8 +189,8 @@ export function createCalendar(container, { onChange, onDatesSet } = {}) {
     snapDuration: minutesToDuration(snapMinutes),
     dayMaxEvents: true,
     eventDisplay: 'block',
-    // 급한 할 일(rank 0~2)은 목록 순서대로 보이게 합니다
-    eventOrder: 'start,-duration,allDay,rank,title',
+    // 끝낸 할 일은 맨 아래, 급한 할 일(rank 0~2)은 목록 순서대로 보이게 합니다
+    eventOrder: 'doneRank,start,-duration,allDay,rank,title',
     selectable: true,
     selectMirror: true,
     editable: true,
@@ -206,7 +218,7 @@ export function createCalendar(container, { onChange, onDatesSet } = {}) {
     events: async (info, success, failure) => {
       try {
         const [events, todos] = await Promise.all([listEventsBetween(info.start, info.end), listTodos()]);
-        const visibleTodos = todos.filter((t) => todoVisible(t, info.start, info.end));
+        const visibleTodos = todos.filter((t) => (showDone || !t.done) && todoVisible(t, info.start, info.end));
         // 월 보기는 한 달 계획용이라 수업 시간표는 숨기고 할 일과 내가 넣은 일정만 보여 줍니다
         const shown = calendar.view?.type === 'dayGridMonth' ? events.filter((row) => !isTimetable(row)) : events;
         const todayKey = toDateKey(new Date());
@@ -324,6 +336,18 @@ export function createCalendar(container, { onChange, onDatesSet } = {}) {
       return fullDay;
     },
     isFullDay: () => fullDay,
+    // 끝낸 할 일 보이기 ↔ 숨기기. 바뀐 상태(true면 보임)를 돌려줍니다
+    toggleShowDone: () => {
+      showDone = !showDone;
+      try {
+        localStorage.setItem(SHOW_DONE_KEY, showDone ? '1' : '0');
+      } catch {
+        // 저장이 안 되면 이번에만 적용됩니다
+      }
+      calendar.refetchEvents();
+      return showDone;
+    },
+    isShowDone: () => showDone,
     // 끌기 단위(분) 바꾸기: 5, 10, 30, 60
     setSnap: (minutes) => {
       if (!SNAP_CHOICES.includes(minutes)) return;

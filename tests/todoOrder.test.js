@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sortTodos, topTodosForToday } from '../src/shared/todoOrder.js';
+import { sortTodos, topTodosForToday, groupTodos } from '../src/shared/todoOrder.js';
 
 test('교시를 정한 할 일이 빠른 시간 순으로 맨 앞에 옵니다', () => {
   const todos = [
@@ -23,4 +23,22 @@ test('오늘 종일 칸에는 가장 급한 할 일 3개를 띄우고, 이미 �
   ];
   assert.deepEqual(topTodosForToday(todos, '2026-10-29').map((t) => t.id), ['b', 'd']);
   assert.deepEqual(topTodosForToday(todos, '2026-10-28').map((t) => t.id), ['a', 'b', 'd']);
+});
+
+test('안 끝난 할 일은 날짜 순(기한 지남 → 오늘 → 내일 → 뒤), 날짜 없는 것은 맨 뒤, 끝낸 것은 최근 순', () => {
+  const todos = [
+    { id: 'none', done: false, due_date: null, scheduled_start: null },
+    { id: 'later', done: false, due_date: '2026-11-30', scheduled_start: null },
+    { id: 'today', done: false, due_date: '2026-11-25', scheduled_start: null },
+    { id: 'todayP', done: false, due_date: '2026-11-25', scheduled_start: '2026-11-25T09:00:00' },
+    { id: 'old', done: false, due_date: '2026-11-20', scheduled_start: null },
+    { id: 'tmr', done: false, due_date: '2026-11-26', scheduled_start: null },
+    { id: 'd1', done: true, due_date: '2026-11-01', done_at: '2026-11-02T00:00:00Z' },
+    { id: 'd2', done: true, due_date: '2026-11-01', done_at: '2026-11-24T00:00:00Z' },
+  ];
+  assert.deepEqual(sortTodos(todos).map((t) => t.id), ['old', 'todayP', 'today', 'tmr', 'later', 'none', 'd2', 'd1']);
+  const g = groupTodos(todos, '2026-11-25');
+  assert.deepEqual(g.overdue.map((t) => t.id), ['old']);
+  assert.deepEqual(g.open.map((t) => t.id), ['todayP', 'today', 'tmr', 'later', 'none']);
+  assert.deepEqual(g.done.map((t) => t.id), ['d2', 'd1']);
 });

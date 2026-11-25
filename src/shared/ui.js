@@ -1,8 +1,8 @@
-import { signIn, signUp, sendPasswordReset, updatePassword, listTodos, addTodo, setTodoDone, deleteTodo, addRepeatEvents, addRepeat, listRepeats, deleteRepeat, generateRepeatTodos } from './api.js';
+import { signIn, signUp, sendPasswordReset, updatePassword, listTodos, addTodo, setTodoDone, deleteTodo, setTodoDueDate, setTodoSchedule, addRepeatEvents, addRepeat, listRepeats, deleteRepeat, generateRepeatTodos } from './api.js';
 import { toDateKey, addDays, dueLabel, fromKeys } from './dates.js';
 import { periodLabel } from './timetable.js';
 import { openPeriodPicker } from './schedulePicker.js';
-import { sortTodos } from './todoOrder.js';
+import { groupTodos, todoDay } from './todoOrder.js';
 import { parseEvening, parseTodoDate, parseDueInput, parseRepeat, repeatLabel } from './quickParse.js';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -298,6 +298,67 @@ export function attachDuePopup(form, input, onSave) {
   return { open, close };
 }
 
+// ---- 할 일 목록 도우미 ----
+const DONE_KEY = 'planning-web:done-collapsed';
+const DONE_PAGE = 20;
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function readDoneCollapsed() {
+  try {
+    return localStorage.getItem(DONE_KEY) !== '0'; // 처음엔 접어 둡니다
+  } catch {
+    return true;
+  }
+}
+function saveDoneCollapsed(collapsed) {
+  try {
+    localStorage.setItem(DONE_KEY, collapsed ? '1' : '0');
+  } catch {
+    // 기억하지 못해도 이번에는 적용됩니다
+  }
+}
+
+// 할 일을 다른 날로 옮깁니다. 교시(시간)를 정해 둔 할 일은 같은 시간 그대로 그날로 옮깁니다
+export async function moveTodoToDay(todo, dayKey) {
+  if (todo.scheduled_start) {
+    const from = todoDay(todo);
+    const diff = Math.round((fromKeys(dayKey) - fromKeys(from)) / 86400000);
+    await setTodoSchedule(todo.id, addDays(new Date(todo.scheduled_start), diff), addDays(new Date(todo.scheduled_end), diff));
+  }
+  await setTodoDueDate(todo.id, dayKey);
+}
+
+// 화면 아래에 잠깐 뜨는 알림 (예: "완료했어요 · 되돌리기"). 5초 뒤 사라집니다
+let toastEl = null;
+let toastTimer = null;
+export function showToast(text, actionText = null, onAction = null) {
+  if (!toastEl) {
+    toastEl = document.createElement('div');
+    toastEl.className = 'toast';
+    toastEl.setAttribute('role', 'status');
+    document.body.append(toastEl);
+  }
+  toastEl.innerHTML = '<span class="toast-text"></span>';
+  toastEl.querySelector('.toast-text').textContent = text;
+  if (actionText) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = actionText;
+    b.addEventListener('click', () => {
+      hide();
+      onAction?.();
+    });
+    toastEl.append(' · ', b);
+  }
+  const hide = () => {
+    toastEl.hidden = true;
+    clearTimeout(toastTimer);
+  };
+  toastEl.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(hide, 5000);
+}
+
 // 할 일 목록: 추가(마감일 선택), 완료 체크, 삭제
 export function createTodoList(container, { onChange, showForm = true } = {}) {
   container.innerHTML = `
@@ -314,6 +375,11 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
       <p class="due-hint" aria-live="polite"></p>
     </form>
     <ul class="todos"></ul>
+    <section class="done-group" hidden>
+      <button type="button" class="done-toggle" aria-expanded="false"><span class="done-arrow">▸</span> <span class="done-label"></span></button>
+      <ul class="todos done-list"></ul>
+      <button type="button" class="done-more" hidden></button>
+    </section>
     <details class="repeats" hidden>
       <summary></summary>
       <ul class="repeat-list"></ul>
@@ -322,6 +388,22 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
   const list = container.querySelector('ul.todos');
   const repeatBox = container.querySelector('.repeats');
   const repeatList = container.querySelector('.repeat-list');
+  const doneGroup = container.querySelector('.done-group');
+  const doneToggle = doneGroup.querySelector('.done-toggle');
+  const doneList = doneGroup.querySelector('.done-list');
+  const doneMore = doneGroup.querySelector('.done-more');
+  let doneCollapsed = readDoneCollapsed();
+  let showAllDone = false;
+  doneToggle.addEventListener('click', () => {
+    doneCollapsed = !doneCollapsed;
+    showAllDone = false;
+    saveDoneCollapsed(doneCollapsed);
+    refresh();
+  });
+  doneMore.addEventListener('click', () => {
+    showAllDone = true;
+    refresh();
+  });
   // 마감 칸에 "목 2교시"처럼 교시까지 쓰면 마감일과 함께 그 시간(일정)도 기억해 둡니다
   let dueSchedule = null;
 
@@ -448,47 +530,116 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
   async function refresh() {
     await makeRepeatTodos();
     renderRepeats();
-    const todos = sortTodos(await listTodos());
+    const todayKey = toDateKey(new Date());
+    const { overdue, open, done } = groupTodos(await listTodos(), todayKey);
     list.innerHTML = '';
-    if (todos.length === 0) {
-      list.innerHTML = '<li class="empty">아직 할 일이 없습니다.</li>';
-      return;
+    doneList.innerHTML = '';
+
+    // 맨 위: 기한 지남 (N) · 모두 오늘로
+    if (overdue.length > 0) {
+      const head = document.createElement('li');
+      head.className = 'group-head overdue-head';
+      head.innerHTML = `<span class="group-title">기한 지남 (${overdue.length})</span><button type="button" class="move-btn all">모두 오늘로</button>`;
+      head.querySelector('button').addEventListener('click', async (e) => {
+        e.currentTarget.disabled = true;
+        await Promise.all(overdue.map((t) => moveTodoToDay(t, todayKey)));
+        changed();
+      });
+      list.append(head);
+      for (const todo of overdue) list.append(todoItem(todo, { overdue: true }));
+      if (open.length > 0) {
+        const sep = document.createElement('li');
+        sep.className = 'group-head';
+        sep.innerHTML = '<span class="group-title">할 일</span>';
+        list.append(sep);
+      }
     }
-    for (const todo of todos) {
-      const li = document.createElement('li');
-      li.className = todo.done ? 'done' : '';
-      li.innerHTML = `
-        <label><input type="checkbox" ${todo.done ? 'checked' : ''} /> <span class="title"></span></label>
-        <button class="icon" title="삭제" aria-label="삭제">×</button>
-        <div class="meta">
-          <button type="button" class="when" title="몇 교시에 할지 정하기">${CLOCK_ICON}<span>교시</span></button>
-          <span class="due"></span>
-        </div>`;
-      li.querySelector('.title').textContent = todo.title;
-      if (todo.repeat_id) {
-        const mark = document.createElement('span');
-        mark.className = 'repeat-mark';
-        mark.title = '반복 할 일';
-        mark.textContent = '↻';
-        li.querySelector('.meta').append(mark);
-      }
-      const due = dueLabel(todo.due_date);
-      if (due && !todo.done) {
-        const badge = li.querySelector('.due');
-        badge.textContent = due.text;
-        badge.classList.add(due.tone);
-      }
-      const when = li.querySelector('.when');
-      if (todo.scheduled_start) {
-        when.classList.add('set');
-        when.querySelector('span').textContent = scheduleText(todo);
-      }
-      if (todo.done) when.hidden = !todo.scheduled_start;
-      when.addEventListener('click', () => openPeriodPicker(todo, when, changed));
-      li.querySelector('input').addEventListener('change', (e) => setTodoDone(todo.id, e.target.checked).then(changed));
-      li.querySelector('button.icon').addEventListener('click', () => deleteTodo(todo.id).then(changed));
-      list.append(li);
+    for (const todo of open) list.append(todoItem(todo));
+    if (overdue.length === 0 && open.length === 0) {
+      list.innerHTML = done.length ? '<li class="empty">남은 할 일이 없어요 🎉</li>' : '<li class="empty">아직 할 일이 없어요.</li>';
     }
+
+    // 아래: 완료됨 (N) ▸ — 기본은 접어 두고, 펼치면 최근에 끝낸 것부터 20개, 「더 보기」로 나머지
+    doneGroup.hidden = done.length === 0;
+    doneGroup.classList.toggle('open', !doneCollapsed);
+    doneToggle.setAttribute('aria-expanded', String(!doneCollapsed));
+    doneToggle.querySelector('.done-label').textContent = `완료됨 (${done.length})`;
+    doneList.hidden = doneCollapsed;
+    const shownDone = doneCollapsed ? [] : showAllDone ? done : done.slice(0, DONE_PAGE);
+    for (const todo of shownDone) doneList.append(todoItem(todo));
+    doneMore.hidden = doneCollapsed || shownDone.length >= done.length;
+    doneMore.textContent = `더 보기 (${done.length - shownDone.length}개)`;
+  }
+
+  // 할 일 한 줄
+  function todoItem(todo, { overdue = false } = {}) {
+    const li = document.createElement('li');
+    li.className = todo.done ? 'done' : overdue ? 'is-overdue' : '';
+    li.innerHTML = `
+      <label><input type="checkbox" ${todo.done ? 'checked' : ''} /> <span class="title"></span></label>
+      <button class="icon" title="삭제" aria-label="삭제">×</button>
+      <div class="meta">
+        <button type="button" class="when" title="몇 교시에 할지 정하기">${CLOCK_ICON}<span>교시</span></button>
+        <span class="due"></span>
+      </div>`;
+    li.querySelector('.title').textContent = todo.title;
+    const meta = li.querySelector('.meta');
+    if (todo.repeat_id) {
+      const mark = document.createElement('span');
+      mark.className = 'repeat-mark';
+      mark.title = '반복 할 일';
+      mark.textContent = '↻';
+      meta.append(mark);
+    }
+    const due = dueLabel(todo.due_date);
+    if (due && !todo.done) {
+      const badge = li.querySelector('.due');
+      badge.textContent = due.text;
+      badge.classList.add(due.tone);
+    }
+    const when = li.querySelector('.when');
+    if (todo.scheduled_start) {
+      when.classList.add('set');
+      when.querySelector('span').textContent = scheduleText(todo);
+    }
+    if (todo.done) when.hidden = !todo.scheduled_start;
+    when.addEventListener('click', () => openPeriodPicker(todo, when, changed));
+    if (overdue) {
+      // 기한 지난 할 일: [오늘로] [내일로]
+      const moves = document.createElement('span');
+      moves.className = 'moves';
+      moves.innerHTML = '<button type="button" class="move-btn" data-days="0">오늘로</button><button type="button" class="move-btn" data-days="1">내일로</button>';
+      for (const b of moves.querySelectorAll('button')) {
+        b.addEventListener('click', async () => {
+          b.disabled = true;
+          await moveTodoToDay(todo, toDateKey(addDays(new Date(), Number(b.dataset.days))));
+          changed();
+        });
+      }
+      meta.append(moves);
+    }
+    li.querySelector('input').addEventListener('change', async (e) => {
+      const nowDone = e.target.checked;
+      // 체크하면 줄이 살짝 접히며 완료 칸으로 옮겨 가고, 아래에 「되돌리기」가 5초 동안 뜹니다
+      li.classList.add('leaving');
+      try {
+        await Promise.all([setTodoDone(todo.id, nowDone), wait(180)]);
+      } catch (err) {
+        li.classList.remove('leaving');
+        e.target.checked = !nowDone;
+        showToast('저장하지 못했어요: ' + err.message);
+        return;
+      }
+      changed();
+      if (nowDone) {
+        showToast('완료했어요', '되돌리기', async () => {
+          await setTodoDone(todo.id, false);
+          changed();
+        });
+      }
+    });
+    li.querySelector('button.icon').addEventListener('click', () => deleteTodo(todo.id).then(changed));
+    return li;
   }
 
   function changed() {

@@ -9,10 +9,13 @@ import { createMiniCalendar } from './miniCalendar.js';
 import { fromKeys } from './shared/dates.js';
 import { openInstallGuide } from './installGuide.js';
 import { openQuarterDialog } from './quarterDialog.js';
+import { attachShortcuts, openShortcutHelp } from './shortcuts.js';
+import { setupInstallBanner } from './installBanner.js';
 
 const app = document.getElementById('app');
 let unsubscribe = null;
 let unsubscribeDiary = null;
+let shortcutsOff = null;
 const TAB_KEY = 'main-tab';
 let currentUserId; // 처음엔 undefined여야 "로그아웃 상태"도 한 번 그려집니다
 // 비밀번호 재설정 링크로 들어오면 Supabase가 로그인까지 시켜 주지만, 새 비밀번호를 정하기 전에는 사이트를 보여 주지 않습니다
@@ -49,6 +52,8 @@ onAuthChange(function render(session, event) {
   unsubscribeDiary?.();
   unsubscribeDiary = null;
 
+  shortcutsOff?.();
+  shortcutsOff = null;
   if (!session) {
     app.className = 'logged-out';
     app.innerHTML = '<h1 class="brand">📅 planning-web</h1><div id="auth"></div>';
@@ -66,16 +71,27 @@ onAuthChange(function render(session, event) {
           <button role="tab" data-tab="diary">일기</button>
         </div>
       </div>
+      <div class="install-banner" hidden>
+        <button type="button" class="banner-main">🧩 <b>어느 화면에서든</b> <kbd>Alt</kbd>+<kbd>S</kbd>로 여는 패널을 설치해 보세요</button>
+        <button type="button" class="banner-close" aria-label="안내 닫기" title="다시 보지 않기">×</button>
+      </div>
       <section class="side-section">
         <h2>할 일</h2>
         <div id="todo-list"></div>
       </section>
       <div id="mini-calendar"></div>
-      <button id="quarter" class="install-btn">🗓 쿼터 시간표 등록</button>
-      <button id="install" class="install-btn">🧩 어느 화면에서든 쓰는 패널 설치</button>
       <footer class="account">
         <span class="email"></span>
-        <button id="logout" class="ghost">로그아웃</button>
+        <div class="settings">
+          <button id="settings" class="ghost settings-btn" aria-haspopup="menu" aria-expanded="false" title="설정">⚙ 설정</button>
+          <div class="settings-menu" role="menu" hidden>
+            <button role="menuitem" id="quarter">🗓 쿼터 시간표 등록</button>
+            <button role="menuitem" id="install">🧩 사이드 패널 설치 안내</button>
+            <button role="menuitem" id="shortcuts">단축키 보기 <kbd>?</kbd></button>
+            <hr />
+            <button role="menuitem" id="logout">로그아웃</button>
+          </div>
+        </div>
       </footer>
     </aside>
     <main class="cal-main">
@@ -87,6 +103,7 @@ onAuthChange(function render(session, event) {
             <button data-view="timeGridWeek">주</button>
             <button data-view="timeGridDay">일</button>
           </div>
+          <button id="show-done" class="ghost-toggle" aria-pressed="false" title="끝낸 할 일도 캘린더에 보이기">완료 표시</button>
           <button id="full-day" class="ghost-toggle" aria-pressed="false" title="0시~24시 전체 보기">전체 시간</button>
           <label class="snap-select" title="끌어서 일정을 잡을 때 맞춰지는 시간 단위">
             <span>드래그 단위</span>
@@ -111,14 +128,36 @@ onAuthChange(function render(session, event) {
       <div class="diary-page-wrap"><section id="diary"></section></div>
     </main>`;
   app.querySelector('.email').textContent = session.user.email;
+  // ⚙ 설정: 자주 안 쓰는 버튼(쿼터 시간표, 패널 설치, 단축키, 로그아웃)은 작은 메뉴 안에 둡니다
+  const settingsButton = app.querySelector('#settings');
+  const settingsMenu = app.querySelector('.settings-menu');
+  const setMenu = (open) => {
+    settingsMenu.hidden = !open;
+    settingsButton.setAttribute('aria-expanded', String(open));
+  };
+  settingsButton.addEventListener('click', () => setMenu(settingsMenu.hidden));
+  document.addEventListener('click', (e) => {
+    if (!settingsMenu.hidden && !e.target.closest('.settings')) setMenu(false);
+  });
+  settingsMenu.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      setMenu(false);
+      settingsButton.focus();
+    }
+  });
+  settingsMenu.addEventListener('click', (e) => {
+    if (e.target.closest('button')) setMenu(false);
+  });
   app.querySelector('#logout').addEventListener('click', signOut);
   app.querySelector('#install').addEventListener('click', openInstallGuide);
+  app.querySelector('#shortcuts').addEventListener('click', openShortcutHelp);
   app.querySelector('#quarter').addEventListener('click', () =>
     openQuarterDialog((range) => {
       calendar.refresh();
       calendar.gotoDate(fromKeys(range.start));
     }),
   );
+  setupInstallBanner(app.querySelector('.install-banner'));
 
   const title = document.getElementById('cal-title');
   const viewButtons = app.querySelectorAll('[data-view]');
@@ -148,6 +187,13 @@ onAuthChange(function render(session, event) {
   };
   syncFullDay(calendar.isFullDay());
   fullDayButton.addEventListener('click', () => syncFullDay(calendar.toggleFullDay()));
+  const showDoneButton = document.getElementById('show-done');
+  const syncShowDone = (on) => {
+    showDoneButton.classList.toggle('active', on);
+    showDoneButton.setAttribute('aria-pressed', String(on));
+  };
+  syncShowDone(calendar.isShowDone());
+  showDoneButton.addEventListener('click', () => syncShowDone(calendar.toggleShowDone()));
   snapSelect.value = String(calendar.getSnap());
   snapSelect.addEventListener('change', () => calendar.setSnap(Number(snapSelect.value)));
   app.querySelector('[data-nav="today"]').addEventListener('click', () => calendar.today());
@@ -186,6 +232,22 @@ onAuthChange(function render(session, event) {
   showTab(savedTab);
   diary.refresh();
   unsubscribeDiary = subscribeDiary(diary.refresh);
+
+  shortcutsOff?.();
+  shortcutsOff = attachShortcuts({
+    calendar,
+    isCalendarTab: () => !calMain.hidden,
+    focusInput: () => {
+      if (calMain.hidden) showTab('calendar');
+      app.querySelector('.todo-add input[name="title"]').focus();
+    },
+  });
+
+  // 확장 패널의 「새 버전이 있어요」 배너를 누르면 ?install=1로 들어와 설치 안내 창을 엽니다
+  if (new URLSearchParams(location.search).get('install') === '1') {
+    history.replaceState(null, '', location.pathname);
+    openInstallGuide();
+  }
 
   todoList.refresh();
   unsubscribe = subscribeChanges(() => {

@@ -232,3 +232,37 @@ button.icon:hover { color: var(--danger); }
 .repeat-list .repeat-title { flex: 1; min-width: 0; color: var(--text); overflow-wrap: anywhere; }
 .repeat-list button.icon { padding: 0 6px; font-size: 16px; line-height: 1; color: var(--faint); border: none; background: none; cursor: pointer; }
 .repeat-list button.icon:hover { color: var(--danger); }
+
+/* ---- 할 일 묶음: 기한 지남 / 완료됨 ---- */
+.todos li.group-head { padding: 8px 4px 4px; border-bottom: 1px solid var(--border-strong); justify-content: space-between; gap: 8px; }
+.todos li.group-head:hover { background: none; }
+.todos li.group-head .group-title { font-size: 12.5px; font-weight: 700; color: var(--muted); }
+.todos li.overdue-head .group-title { color: var(--danger); }
+.todos li.is-overdue .title { color: var(--text); }
+.todos .moves { display: inline-flex; gap: 4px; margin-left: auto; }
+.todos .move-btn { padding: 0 7px; font-size: 11.5px; line-height: 1.6; border: 1px solid var(--border-strong); border-radius: 2px;
+  background: var(--bg); color: var(--text); white-space: nowrap; }
+.todos .move-btn:hover { border-color: var(--text); background: var(--bg); }
+.todos .move-btn.all { font-weight: 600; }
+.todos li .meta { flex-wrap: wrap; }
+.todos .due { flex: none; }
+/* 체크하면 줄이 살짝 접히며 사라집니다 */
+.todos li.leaving { opacity: 0; transform: translateX(8px); transition: opacity 0.18s, transform 0.18s; }
+
+.done-group { margin-top: 10px; }
+.done-toggle { width: 100%; display: flex; align-items: center; gap: 6px; padding: 6px 4px; border: none; border-radius: 0;
+  border-bottom: 1px solid var(--border-strong); background: none; font-size: 13px; font-weight: 700; color: var(--muted); text-align: left; }
+.done-toggle:hover { background: var(--hover); color: var(--text); }
+.done-arrow { display: inline-block; width: 12px; transition: transform 0.12s; }
+.done-group.open .done-arrow { transform: rotate(90deg); }
+.done-more { width: 100%; margin-top: 4px; padding: 5px; border: none; background: none; font-size: 12.5px; color: var(--muted); }
+.done-more:hover { color: var(--text); }
+
+/* 화면 아래 잠깐 뜨는 알림 */
+.toast { position: fixed; left: 50%; bottom: 20px; translate: -50% 0; z-index: 100; display: flex; align-items: center; gap: 4px;
+  max-width: calc(100vw - 32px); padding: 8px 14px; border-radius: var(--radius); background: var(--text); color: var(--bg);
+  font-size: 13.5px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2); }
+.toast[hidden] { display: none; }
+.toast button { padding: 0 4px; border: none; background: none; color: inherit; font-weight: 700; text-decoration: underline; }
+.toast button:hover { background: none; opacity: 0.85; }
+@media (prefers-reduced-motion: reduce) { .todos li.leaving { transition: none; } }
