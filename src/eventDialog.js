@@ -3,6 +3,7 @@ import { quarterRange } from './shared/quarterPlan.js';
 import { isTimetable, TIMETABLE_MEMO, QUARTER, weeklyRepeats } from './shared/timetable.js';
 import { toDateKey, toTimeKey, fromKeys, addDays, parseTime } from './shared/dates.js';
 import { EVENT_COLORS, DEFAULT_COLOR } from './colors.js';
+import { DEFAULT_REMIND_MIN } from './shared/remind.js';
 
 const dialog = document.createElement('dialog');
 dialog.className = 'event-dialog';
@@ -19,6 +20,16 @@ dialog.innerHTML = `
       <span class="dash">–</span>
       <input name="endDate" type="date" required aria-label="끝 날짜" />
       <input name="endTime" class="time-input" placeholder="14:00" maxlength="12" autocomplete="off" aria-label="끝 시간" />
+    </div>
+    <div class="extra-row">
+      <label class="field"><span>장소</span><input name="location" maxlength="200" placeholder="예: 메이커 스페이스" autocomplete="off" /></label>
+      <label class="field"><span>알림</span><select name="remind">
+        <option value="">없음</option>
+        <option value="5">5분 전</option>
+        <option value="10">10분 전</option>
+        <option value="30">30분 전</option>
+        <option value="60">1시간 전</option>
+      </select></label>
     </div>
     <div class="colors" role="radiogroup" aria-label="색상">
       ${EVENT_COLORS.map(
@@ -133,6 +144,9 @@ form.addEventListener('submit', async (e) => {
     color: form.color.value || DEFAULT_COLOR,
     memo: form.memo.value.trim() || null,
     isTimetable: form.timetable.checked,
+    location: form.location.value.trim() || null,
+    // 비우면 '없음'(0). 10분 전이 기본이라 null과 10은 같은 뜻입니다
+    remindMinutes: form.remind.value === '' ? 0 : Number(form.remind.value),
   };
   try {
     if (editingId) await updateEvent(editingId, fields);
@@ -171,7 +185,7 @@ async function repeatForQuarter(fields) {
 
 // 새 일정 만들기: start/end는 캘린더에서 고른 범위입니다
 export function openNewEvent({ start, end, allDay }, saved) {
-  fill({ title: '', start, end, allDay, color: DEFAULT_COLOR, memo: '', timetable: false });
+  fill({ title: '', start, end, allDay, color: DEFAULT_COLOR, memo: '', timetable: false, location: '', remind: DEFAULT_REMIND_MIN });
   editingId = null;
   editingRow = null;
   onSaved = saved;
@@ -190,6 +204,8 @@ export function openEditEvent(row, saved) {
     // 예전 방식의 '[시간표]' 꼬리표는 메모로 보이지 않게 합니다
     memo: row.memo === TIMETABLE_MEMO ? '' : row.memo || '',
     timetable: isTimetable(row),
+    location: row.location || '',
+    remind: row.remind_minutes ?? DEFAULT_REMIND_MIN,
   });
   editingId = row.id;
   editingRow = row;
@@ -198,7 +214,7 @@ export function openEditEvent(row, saved) {
   dialog.showModal();
 }
 
-function fill({ title, start, end, allDay, color, memo, timetable }) {
+function fill({ title, start, end, allDay, color, memo, timetable, location, remind }) {
   message.textContent = '';
   form.title.value = title;
   form.allDay.checked = allDay;
@@ -208,6 +224,8 @@ function fill({ title, start, end, allDay, color, memo, timetable }) {
   form.endTime.value = allDay ? '' : toTimeKey(end);
   form.memo.value = memo;
   form.timetable.checked = timetable;
+  form.location.value = location;
+  form.remind.value = remind ? String(remind) : '';
   for (const input of [form.startTime, form.endTime]) input.classList.remove('invalid');
   for (const radio of form.querySelectorAll('[name="color"]')) radio.checked = radio.value === color;
   syncAllDay();

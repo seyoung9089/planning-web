@@ -188,6 +188,12 @@ function renderPanel() {
       const end = new Date(ev.end_at);
       li.querySelector('.time').textContent = ev.all_day ? '종일' : `${hm(start)}–${hm(end)}`;
       li.querySelector('.title').textContent = ev.kind === 'todo' ? `○ ${ev.title} · ${periodLabel(start, end)}` : ev.title;
+      if (ev.location) {
+        const where = document.createElement('span');
+        where.className = 'ev-place';
+        where.textContent = ev.location;
+        li.querySelector('.title').after(where);
+      }
       eventList.append(li);
     }
   }

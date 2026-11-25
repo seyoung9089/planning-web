@@ -3,8 +3,9 @@ import { supabase } from '../src/shared/supabase.js';
 import { listEventsBetween, listTodos } from '../src/shared/api.js';
 import { toDateKey } from '../src/shared/dates.js';
 import { isTimetable } from '../src/shared/timetable.js';
+import { remindMinutes } from '../src/shared/remind.js';
 
-const REMIND_BEFORE_MIN = 10; // 일정 몇 분 전에 알릴지
+const REMIND_BEFORE_MIN = 10; // 할 일(교시) 알림: 몇 분 전에 알릴지
 const DUE_REMINDER_HOUR = 18; // 오늘 마감인 할 일을 몇 시에 알릴지
 
 // 툴바 아이콘(또는 Alt+S)을 누르면 사이드 패널이 열리게 합니다
@@ -59,11 +60,15 @@ async function syncReminders() {
       for (const ev of events) {
         // 종일 일정과 수업 시간표는 알리지 않습니다 (수업마다 알림이 오면 너무 많음)
         if (ev.all_day || isTimetable(ev)) continue;
+        // 일정마다 정한 알림 시간을 씁니다 (안 정했으면 10분 전, 0이면 알리지 않음)
+        const before = remindMinutes(ev);
+        if (!before) continue;
         const start = new Date(ev.start_at);
-        const when = start.getTime() - REMIND_BEFORE_MIN * 60000;
+        const when = start.getTime() - before * 60000;
         if (when <= Date.now()) continue;
         const name = 'ev:' + ev.id;
-        reminders[name] = { title: `${REMIND_BEFORE_MIN}분 뒤: ${ev.title}`, message: `${hm(start)} – ${hm(new Date(ev.end_at))}` };
+        const where = ev.location ? ` · 📍 ${ev.location}` : '';
+        reminders[name] = { title: `${before}분 뒤: ${ev.title}`, message: `${hm(start)} – ${hm(new Date(ev.end_at))}${where}` };
         chrome.alarms.create(name, { when });
       }
 

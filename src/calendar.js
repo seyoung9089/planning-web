@@ -237,16 +237,23 @@ export function createCalendar(container, { onChange, onDatesSet } = {}) {
     eventDidMount: (info) => {
       const { color, row, kind } = info.event.extendedProps;
       if (color) info.el.style.setProperty('--ev', color);
-      // 메모가 있으면 제목 아래에 작게 보여 줍니다
+      // 장소와 메모가 있으면 제목 아래에 작게 보여 줍니다
       const memo = kind === 'event' && row.memo !== TIMETABLE_MEMO ? row.memo : null;
+      const place = kind === 'event' ? row.location : null;
       const frame = info.el.querySelector('.fc-event-title-container') ?? info.el.querySelector('.fc-event-main-frame');
+      if (frame && place) {
+        const where = document.createElement('div');
+        where.className = 'ev-place';
+        where.textContent = place;
+        frame.append(where);
+      }
       if (memo && frame) {
         const note = document.createElement('div');
         note.className = 'ev-memo';
         note.textContent = memo;
         frame.append(note);
-        info.el.title = `${info.event.title}\n${memo}`;
       }
+      if (place || memo) info.el.title = [info.event.title, place && `📍 ${place}`, memo].filter(Boolean).join('\n');
     },
 
     // 빈 칸을 누르거나 끌어서 범위를 고르면 새 일정 창을 엽니다
