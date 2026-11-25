@@ -36,7 +36,14 @@ npm run build:extension  # 크롬 확장: dist-extension/ 폴더가 만들어집
 - **빠른 입력**: `내일 7시 학원`, `오늘 오후 3시~5시 독서실`처럼 시간을 쓰면 일정, `금요일 수행평가`처럼 시간이 없으면 마감일 있는 할 일로 저장됩니다. 입력하는 동안 어떻게 저장될지 미리 보여 줍니다. (`src/shared/quickParse.js`, 테스트: `npm test`)
 - **할 일을 교시에 배치**: 할 일 아래의 작은 시계 버튼을 누르면 맨 위에서 요일을 고르고, 그날 교시(1~4교시, 점심, 5~10교시, 저녁활동 1·2)가 세로로 나오는 패널이 열립니다. 이미 일정이나 교시를 정한 다른 할 일이 있는 교시, 지난 교시는 회색으로 막히고 옆에 일정 이름이 표시됩니다. 정한 시간은 캘린더와 패널의 오늘 일정에 점선 칸으로 표시됩니다. 학교 시간표는 `src/shared/timetable.js`에서 고칠 수 있습니다.
 - **지금 / 다음**: 진행 중인 일정의 남은 시간과 다음 일정까지 남은 시간
-- **알림**: 일정 10분 전, 오늘 마감인 할 일이 남아 있으면 오후 6시에 크롬 알림 (`extension/background.js`). 15분마다, 그리고 패널에서 무언가 바꿀 때마다 알림 예약을 새로 합니다.
+- **알림**: 일정마다 정한 시간 전(기본 10분, 일정 창의 「알림」 칸에서 바꿉니다), 오늘 마감인 할 일이 남아 있으면 오후 6시에 크롬 알림 (`extension/background.js`). 15분마다, 그리고 패널에서 무언가 바꿀 때마다 알림 예약을 새로 합니다.
+- **오른쪽 클릭으로 추가**: 아무 페이지에서 오른쪽 클릭 → 「planning-web에 할 일로 추가」. 고른 글자(없으면 페이지 제목)가 입력 칸에 채워진 채 패널이 열리고, 주소는 메모로 함께 저장됩니다.
+- **자동 로그인**: 사이트에 로그인해 두면 사이트가 확장에 로그인 정보를 넘겨 패널도 같은 계정이 됩니다. 확장은 보낸 곳이 `https://planning-web.pages.dev`가 맞을 때만 받습니다 (`manifest.json`의 `externally_connectable`, `src/shared/extensionId.js`).
+- **새 버전 알림**: 패널을 열 때 `/extension/version.json`(빌드할 때 manifest 버전으로 만들어집니다)과 견줘, 더 새 버전이 있으면 위에 띠를 보여 줍니다.
+
+### 사이트 단축키
+
+<kbd>T</kbd> 오늘, <kbd>←</kbd>/<kbd>→</kbd> 이전·다음, <kbd>M</kbd>/<kbd>W</kbd>/<kbd>D</kbd> 월·주·일 보기, <kbd>N</kbd> 또는 <kbd>/</kbd> 입력 칸, <kbd>?</kbd> 단축키 목록. 글을 쓰는 중에는 동작하지 않습니다 (`src/shortcuts.js`).
 
 코드를 고친 뒤에는 다시 빌드하고 `chrome://extensions`에서 새로고침 버튼을 누르면 됩니다.
 
@@ -52,5 +59,6 @@ Cloudflare 대시보드 → Workers & Pages → 만들기 → Pages → Git에 �
 
 ## Supabase
 
-- 테이블: `events`(일정), `todos`(할 일). 둘 다 RLS로 **본인 데이터만** 읽고 쓸 수 있습니다.
+- 테이블: `events`(일정), `todos`(할 일), `notes`(메모), `diary_entries`(일기), `todo_repeats`(반복 할 일), `user_settings`(쿼터 시작일). 모두 RLS로 **본인 데이터만** 읽고 쓸 수 있습니다.
+- 표 구조를 바꾼 기록은 `supabase/migrations/`에 둡니다.
 - 대시보드 Authentication → URL Configuration의 **Site URL**을 배포된 주소로 바꿔야 인증 메일 링크가 올바른 곳으로 갑니다.

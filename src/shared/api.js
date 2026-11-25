@@ -118,7 +118,7 @@ export async function listEventsBetween(from, to) {
 }
 
 // 화면에서 쓰는 이름(startAt 등)을 데이터베이스 칸 이름(start_at 등)으로 바꿉니다
-function toEventRow({ title, startAt, endAt, allDay, color, memo, isTimetable }) {
+function toEventRow({ title, startAt, endAt, allDay, color, memo, isTimetable, location, remindMinutes }) {
   const row = {};
   if (title !== undefined) row.title = title;
   if (startAt !== undefined) row.start_at = startAt.toISOString();
@@ -127,6 +127,8 @@ function toEventRow({ title, startAt, endAt, allDay, color, memo, isTimetable })
   if (color !== undefined) row.color = color;
   if (memo !== undefined) row.memo = memo;
   if (isTimetable !== undefined) row.is_timetable = isTimetable;
+  if (location !== undefined) row.location = location;
+  if (remindMinutes !== undefined) row.remind_minutes = remindMinutes;
   return row;
 }
 
@@ -137,8 +139,8 @@ export async function addEvents(list) {
   if (error) throw error;
 }
 
-export async function addEvent({ title, startAt, endAt, allDay = false, color = null, memo = null, isTimetable = false }) {
-  const { error } = await supabase.from('events').insert(toEventRow({ title, startAt, endAt, allDay, color, memo, isTimetable }));
+export async function addEvent({ title, startAt, endAt, allDay = false, color = null, memo = null, isTimetable = false, location, remindMinutes }) {
+  const { error } = await supabase.from('events').insert(toEventRow({ title, startAt, endAt, allDay, color, memo, isTimetable, location, remindMinutes }));
   if (error) throw error;
 }
 

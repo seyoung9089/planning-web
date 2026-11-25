@@ -1,8 +1,12 @@
 // 쿼터 시간표 등록 창: 요일 × 교시 표에 수업 이름을 쓰고, 시작일만 정하면 그 쿼터(9주) 동안 매주 들어갑니다
 import { getQuarterSetting, saveQuarterSetting, listTimetableBetween, addEvents, deleteEvents } from './shared/api.js';
-import { GRID_ROWS, GRID_DAYS, DEFAULT_WEEKS, quarterRange, blocksFromGrid, gridFromEvents, expandTemplates, rowsToReplace } from './shared/quarterPlan.js';
+import { GRID_ROWS, GRID_DAYS, DEFAULT_WEEKS, quarterRange, blocksFromGrid, gridFromEvents, expandTemplates, rowsToReplace, splitPlace, joinPlace, autoColors } from './shared/quarterPlan.js';
 import { fromKeys, toDateKey, addDays } from './shared/dates.js';
 import { EVENT_COLORS, DEFAULT_COLOR } from './colors.js';
+
+// 자동으로 나눌 때 쓰는 색 (회색은 지난 일정처럼 보여서 뺍니다)
+const AUTO_PALETTE = EVENT_COLORS.map((c) => c.value).filter((c) => c !== '#616161');
+const nameOf = (text) => splitPlace(text).title;
 
 const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
 const short = (key) => {
@@ -17,7 +21,7 @@ dialog.innerHTML = `
   <form method="dialog">
     <header class="q-head">
       <h2>🗓 쿼터 시간표 등록</h2>
-      <p class="lead">칸에 수업 이름을 쓰면 됩니다. 같은 이름을 이어서 쓴 교시는 하나의 수업으로 합쳐져요. <kbd>Enter</kbd>는 아래 칸으로 이동합니다.</p>
+      <p class="lead">칸에 수업 이름을 쓰면 됩니다. 같은 이름을 이어서 쓴 교시는 하나의 수업으로 합쳐져요. 「뉴욕 @ 메이커 스페이스」처럼 <b>@</b> 뒤에 쓰면 장소로 저장돼요. <kbd>Enter</kbd>는 아래 칸으로 이동합니다.</p>
     </header>
     <div class="q-range">
       <label>쿼터 시작일 <input name="start" type="date" required /></label>
@@ -27,7 +31,7 @@ dialog.innerHTML = `
     <div class="q-grid-wrap"><table class="q-grid"></table></div>
     <datalist id="q-names"></datalist>
     <section class="q-colors" hidden>
-      <h3>수업 색 <small>(이름을 누르면 색을 바꿀 수 있어요)</small></h3>
+      <h3>수업 색 <small>(이름을 누르면 색을 바꿀 수 있어요)</small> <button type="button" class="auto-colors">색 자동으로 나누기</button></h3>
       <ul></ul>
       <div class="q-pop" role="dialog" aria-label="색 고르기" hidden>${EVENT_COLORS.map(
         (c) => `<button type="button" class="dot" data-color="${c.value}" title="${c.name}" aria-label="${c.name}" style="background:${c.value}"></button>`,
@@ -95,6 +99,7 @@ function currentRange() {
 function templates() {
   const list = [...blocksFromGrid(readCells()), ...extras];
   return list.map((t) => ({ ...t, color: colors[t.title] || DEFAULT_COLOR }));
+
 }
 
 function newEvents() {
@@ -107,17 +112,18 @@ function paint() {
   for (const input of inputs) {
     const title = input.value.trim();
     const td = input.parentElement;
-    td.style.setProperty('--c', title ? colors[title] || DEFAULT_COLOR : 'transparent');
+    td.style.setProperty('--c', title ? colors[nameOf(title)] || DEFAULT_COLOR : 'transparent');
     td.classList.toggle('filled', !!title);
     const below = cellAt(input.dataset.dow, Number(input.dataset.row) + 1);
     td.classList.toggle('joined', !!title && below?.value.trim() === title);
     const above = cellAt(input.dataset.dow, Number(input.dataset.row) - 1);
     td.classList.toggle('cont', !!title && above?.value.trim() === title);
   }
-  const titles = [...new Set([...inputs.map((i) => i.value.trim()), ...extras.map((e) => e.title)].filter(Boolean))].sort((a, b) =>
+  const titles = [...new Set([...inputs.map((i) => nameOf(i.value)), ...extras.map((e) => e.title)].filter(Boolean))].sort((a, b) =>
     a.localeCompare(b, 'ko'),
   );
-  for (const t of titles) colors[t] ||= DEFAULT_COLOR;
+  // 색을 고르지 않은(기본색인) 새 수업에만 서로 다른 색을 자동으로 붙입니다. 고른 색은 그대로 둡니다
+  if (titles.some((t) => !colors[t])) colors = autoColors(titles.filter((t) => !colors[t]), colors, AUTO_PALETTE, DEFAULT_COLOR);
   colorSection.hidden = titles.length === 0;
   colorSection.querySelector('ul').innerHTML = titles
     .map((t, ti) => `<li><button type="button" class="chip" data-title-index="${ti}" style="--c:${colors[t]}"><i></i><span class="name"></span></button></li>`)
@@ -129,10 +135,10 @@ function paint() {
   extrasSection.querySelector('ul').innerHTML = extras
     .map((e, i) => `<li><span>${DAY_NAMES[e.dow]} ${fmtTime(e.start)}~${fmtTime(e.end)}</span> <span class="name"></span> <button type="button" class="x" data-extra="${i}" aria-label="빼기">✕</button></li>`)
     .join('');
-  extrasSection.querySelectorAll('.name').forEach((el, i) => (el.textContent = extras[i].title));
+  extrasSection.querySelectorAll('.name').forEach((el, i) => (el.textContent = joinPlace(extras[i].title, extras[i].location)));
 
   names.innerHTML = '';
-  for (const t of titles) names.append(new Option(t));
+  for (const v of new Set(inputs.map((i) => i.value.trim()).filter(Boolean))) names.append(new Option(v));
   updateSummary();
 }
 
@@ -191,6 +197,16 @@ function closePop() {
   popTitle = null;
 }
 colorSection.addEventListener('click', (e) => {
+  if (e.target.closest('.auto-colors')) {
+    // 모든 수업에 색을 새로 나눠 줍니다. 저장하기 전까지는 「취소」로 되돌릴 수 있습니다
+    const titles = JSON.parse(colorSection.dataset.titles);
+    colors = autoColors(titles, colors, AUTO_PALETTE, DEFAULT_COLOR, false);
+    closePop();
+    paint();
+    message.textContent = '';
+    summary.textContent = '색을 새로 나눴어요. 마음에 들면 「이 쿼터에 저장」, 아니면 「취소」를 누르세요.';
+    return;
+  }
   const chip = e.target.closest('.chip');
   if (chip) {
     const title = JSON.parse(colorSection.dataset.titles)[Number(chip.dataset.titleIndex)];

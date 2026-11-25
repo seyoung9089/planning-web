@@ -5,7 +5,8 @@ import { onAuthChange, signOut, subscribeChanges, listEventsBetween, listTodos, 
 import { createDiary } from '../src/shared/diary.js';
 import { periodLabel, isTimetable } from '../src/shared/timetable.js';
 import { renderAuthForm, createTodoList, attachDuePopup } from '../src/shared/ui.js';
-import { parseQuick, parseNote, repeatLabel } from '../src/shared/quickParse.js';
+import { parseQuick, parseNote } from '../src/shared/quickParse.js';
+import { previewOf, EMPTY_HINT } from '../src/shared/preview.js';
 import { createNotePad } from './notepad.js';
 import { findGaps } from '../src/shared/freeTime.js';
 import { toDateKey, addDays } from '../src/shared/dates.js';
@@ -25,14 +26,6 @@ logoutButton.addEventListener('click', signOut);
 const pad = (n) => String(n).padStart(2, '0');
 const hm = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
-function dayName(date) {
-  const today = toDateKey(new Date());
-  const key = toDateKey(date);
-  const base = `${date.getMonth() + 1}/${date.getDate()}(${WEEKDAYS[date.getDay()]})`;
-  if (key === today) return `오늘 ${base}`;
-  if (key === toDateKey(addDays(new Date(), 1))) return `내일 ${base}`;
-  return base;
-}
 
 // 백그라운드에 알림 예약을 다시 하라고 알려 줍니다
 function notifyBackground() {
@@ -63,46 +56,46 @@ function renderPanel() {
 
   // 입력하는 동안 어떻게 저장될지 미리 보여 줍니다
   function showPreview() {
-    const text = form.text.value.trim();
-    if (!text) {
-      preview.innerHTML = '<span class="hint">시간을 쓰면 일정, 안 쓰면 할 일(「화요일 10교시」, 「매일 영어 단어」처럼 반복도 돼요). 「메모 …」는 메모장으로. Enter로 추가</span>';
-      return;
-    }
+    const p = previewOf(form.text.value);
     preview.innerHTML = '';
     const chip = document.createElement('span');
-    const note = parseNote(text);
-    if (note) {
-      chip.className = 'chip note';
-      chip.textContent = `📝 메모 · ${note}`;
-      preview.append(chip);
-      return;
-    }
-    const parsed = parseQuick(text);
-    if (parsed.kind === 'repeatTodo') {
-      chip.className = 'chip todo';
-      chip.textContent = `↻ 반복 할 일 · ${repeatLabel(parsed.weekdays)} · ${parsed.title}`;
-    } else if (parsed.kind === 'weekly') {
-      chip.className = 'chip event';
-      chip.textContent = `🔁 ${repeatLabel(parsed.weekdays)} ${periodLabel(parsed.startAt, parsed.endAt)} · ${parsed.title} (쿼터 끝까지)`;
-    } else if (parsed.kind === 'event') {
-      chip.className = 'chip event';
-      chip.textContent = `📅 일정 · ${dayName(parsed.startAt)} ${hm(parsed.startAt)}–${hm(parsed.endAt)} · ${parsed.title}`;
+    if (!p) {
+      chip.className = 'hint';
+      chip.textContent = EMPTY_HINT + ' (「메모 …」는 메모장으로)';
     } else {
-      chip.className = 'chip todo';
-      chip.textContent = parsed.schedule
-        ? `☑ 할 일 · ${dayName(parsed.schedule.startAt)} ${periodLabel(parsed.schedule.startAt, parsed.schedule.endAt)} · ${parsed.title}`
-        : parsed.dueDate
-          ? `☑ 할 일 · 마감 ${dayName(parsed.dueDate)} · ${parsed.title}`
-          : `☑ 할 일 · ${parsed.title} · Enter 누르면 마감일 입력`;
+      chip.className = 'chip ' + (p.kind === 'repeat' ? 'event' : p.kind);
+      chip.textContent = p.text;
     }
     preview.append(chip);
   }
   form.text.addEventListener('input', showPreview);
   showPreview();
 
+  // 오른쪽 클릭 메뉴로 넣은 글이 있으면 입력 칸을 미리 채웁니다 (저장은 Enter로)
+  async function fillPending() {
+    try {
+      const { pendingQuick } = await chrome.storage.local.get('pendingQuick');
+      if (!pendingQuick || Date.now() - pendingQuick.at > 60000) return;
+      await chrome.storage.local.remove('pendingQuick');
+      form.text.value = pendingQuick.text;
+      pendingUrl = pendingQuick.url || null;
+      showPreview();
+      if (pendingUrl) preview.insertAdjacentHTML('beforeend', '<span class="hint">· 주소는 메모에 함께 저장돼요</span>');
+      form.text.focus();
+      form.text.setSelectionRange(form.text.value.length, form.text.value.length);
+    } catch {
+      /* 저장소를 못 읽으면 그냥 넘어갑니다 */
+    }
+  }
+  let pendingUrl = null;
+  fillPending();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') fillPending();
+  });
+
   // 사이트 할 일 칸과 똑같이: 날짜·시간 없이 할 일을 쓰고 Enter → 마감일 팝업 → 날짜 쓰고 Enter로 저장
   // (비우면 오늘, Esc 취소). 날짜·시간·교시·'매주'를 이미 썼으면 팝업 없이 바로 저장합니다
-  const needsDue = (parsed) => parsed.kind === 'todo' && !parsed.dueDate && !parsed.schedule;
+  const needsDue = (text) => previewOf(text)?.needsDue === true;
   const duePopup = attachDuePopup(form, form.text, ({ date, schedule }) => save({ dueDate: date, schedule }));
 
   form.text.addEventListener('keydown', (e) => {
@@ -111,7 +104,7 @@ function renderPanel() {
     const text = form.text.value.trim();
     if (!text) return;
     if (parseNote(text)) saveNote();
-    else if (needsDue(parseQuick(text))) duePopup.open();
+    else if (needsDue(text)) duePopup.open();
     else save();
   });
   form.addEventListener('submit', (e) => e.preventDefault());
@@ -141,13 +134,16 @@ function renderPanel() {
       } else if (parsed.kind === 'weekly') {
         await addRepeatEvents(parsed);
       } else if (parsed.kind === 'event') {
-        await addEvent({ title: parsed.title, startAt: parsed.startAt, endAt: parsed.endAt });
+        await addEvent({ title: parsed.title, startAt: parsed.startAt, endAt: parsed.endAt, location: parsed.location });
       } else {
         const dueDate = due ? due.dueDate : parsed.dueDate;
         const schedule = due ? due.schedule : parsed.schedule;
         await addTodo(parsed.title, dueDate ? toDateKey(dueDate) : null, schedule);
+        // 오른쪽 클릭으로 넣은 할 일은 그 페이지 주소를 메모로 함께 남깁니다
+        if (pendingUrl) await addNote(`${parsed.title}\n${pendingUrl}`);
       }
       form.text.value = '';
+      pendingUrl = null;
       showPreview();
       preview.insertAdjacentHTML('afterbegin', '<span class="saved">✓ 추가했어요</span>');
       refreshAll();
@@ -188,6 +184,12 @@ function renderPanel() {
       const end = new Date(ev.end_at);
       li.querySelector('.time').textContent = ev.all_day ? '종일' : `${hm(start)}–${hm(end)}`;
       li.querySelector('.title').textContent = ev.kind === 'todo' ? `○ ${ev.title} · ${periodLabel(start, end)}` : ev.title;
+      if (ev.location) {
+        const where = document.createElement('span');
+        where.className = 'ev-place';
+        where.textContent = ev.location;
+        li.querySelector('.title').after(where);
+      }
       eventList.append(li);
     }
   }
@@ -259,6 +261,36 @@ function renderPanel() {
   });
   return { refreshAll, refreshNotes: notePad.refresh, refreshDiary: diary.refresh };
 }
+
+// 사이트에 올려 둔 /extension/version.json과 지금 깔린 버전을 견줘, 더 새 버전이 있으면 위에 작은 띠를 보여 줍니다
+async function checkNewVersion() {
+  const mine = chrome.runtime.getManifest?.().version;
+  if (!mine) return;
+  try {
+    const res = await fetch('https://planning-web.pages.dev/extension/version.json', { cache: 'no-store' });
+    const { version } = await res.json();
+    if (version && isOlder(mine, version)) {
+      const banner = document.getElementById('update-banner');
+      banner.hidden = false;
+      banner.title = `지금 ${mine} → 새 버전 ${version}`;
+    }
+  } catch {
+    /* 인터넷이 안 되면 그냥 넘어갑니다 */
+  }
+}
+
+// "0.2.9"보다 "0.2.10"이 새 버전입니다 (글자 비교가 아니라 숫자로 견줍니다)
+export function isOlder(a, b) {
+  const pa = String(a).split('.').map(Number);
+  const pb = String(b).split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = pa[i] || 0;
+    const y = pb[i] || 0;
+    if (x !== y) return x < y;
+  }
+  return false;
+}
+checkNewVersion();
 
 function updateTitle() {
   const d = new Date();

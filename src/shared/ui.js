@@ -1,9 +1,10 @@
-import { signIn, signUp, sendPasswordReset, updatePassword, listTodos, addTodo, setTodoDone, deleteTodo, setTodoDueDate, setTodoSchedule, addRepeatEvents, addRepeat, listRepeats, deleteRepeat, generateRepeatTodos } from './api.js';
+import { signIn, signUp, sendPasswordReset, updatePassword, listTodos, addTodo, setTodoDone, deleteTodo, setTodoDueDate, setTodoSchedule, addEvent, addNote, addRepeatEvents, addRepeat, listRepeats, deleteRepeat, generateRepeatTodos } from './api.js';
 import { toDateKey, addDays, dueLabel, fromKeys } from './dates.js';
 import { periodLabel } from './timetable.js';
 import { openPeriodPicker } from './schedulePicker.js';
 import { groupTodos, todoDay } from './todoOrder.js';
-import { parseEvening, parseTodoDate, parseDueInput, parseRepeat, repeatLabel } from './quickParse.js';
+import { parseEvening, parseTodoDate, parseDueInput, parseRepeat, repeatLabel, parseQuick, parseNote } from './quickParse.js';
+import { previewOf, EMPTY_HINT } from './preview.js';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -363,7 +364,8 @@ export function showToast(text, actionText = null, onAction = null) {
 export function createTodoList(container, { onChange, showForm = true } = {}) {
   container.innerHTML = `
     <form class="todo-add" ${showForm ? '' : 'hidden'}>
-      <input name="title" placeholder="할 일을 입력하고 Enter" maxlength="200" required />
+      <input name="title" placeholder="할 일·일정을 입력하고 Enter" maxlength="200" required autocomplete="off" />
+      <p class="quick-preview" aria-live="polite"></p>
       <div class="due-row">
         <span>마감</span>
         <button type="button" data-due="0">오늘</button>
@@ -423,14 +425,30 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
     form.requestSubmit();
   });
 
+  // 쓰는 동안 어떻게 저장될지 아래에 보여 줍니다 (사이드 패널과 같은 글)
+  const previewLine = form.querySelector('.quick-preview');
+  function showPreview() {
+    const text = form.title.value.trim();
+    const p = text ? previewOf(text) : null;
+    previewLine.className = 'quick-preview' + (p ? ` ${p.kind}` : ' hint');
+    previewLine.textContent = p ? p.text : EMPTY_HINT;
+  }
+  form.title.addEventListener('input', showPreview);
+  showPreview();
+  // 저장 결과를 미리보기 자리에 잠깐 보여 줍니다 (마감 줄은 화면에서 숨겨져 있습니다)
+  function say(text, isError = false) {
+    previewLine.className = 'quick-preview ' + (isError ? 'error' : 'saved');
+    previewLine.textContent = text;
+  }
+
   // 할 일을 쓰고 Enter → 마감일 팝업이 뜨고 → 날짜를 쓰고 Enter로 저장. 마우스 없이 끝납니다.
-  // 마감일을 이미 골랐거나 제목에 날짜·교시를 썼으면 팝업 없이 바로 저장합니다
+  // 마감일을 이미 골랐거나 제목에 날짜·시간·교시를 썼으면 팝업 없이 바로 저장합니다
   form.title.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' || e.isComposing) return;
     e.preventDefault();
     const title = form.title.value.trim();
     if (!title) return;
-    if (form.due.value || parseRepeat(title) || parseEvening(title) || parseTodoDate(title).date) form.requestSubmit();
+    if (form.due.value || !previewOf(title)?.needsDue) form.requestSubmit();
     else duePopup.open();
   });
   form.dueText.addEventListener('keydown', (e) => {
@@ -647,6 +665,14 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
     onChange?.();
   }
 
+  function resetForm() {
+    form.title.value = '';
+    form.due.value = '';
+    dueSchedule = null;
+    syncDueButtons();
+    showPreview();
+  }
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const title = form.title.value.trim();
@@ -656,6 +682,32 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
       syncDueButtons(false, true);
       form.dueText.focus();
       return;
+    }
+    // "메모 …"는 메모장으로, "내일 7시 학원"처럼 시간을 쓰면 캘린더 일정으로 저장합니다 (사이드 패널과 같은 규칙)
+    const note = parseNote(title);
+    if (note) {
+      try {
+        await addNote(note);
+        resetForm();
+        say('✓ 메모장에 넣었어요 (사이드 패널에서 볼 수 있어요)');
+      } catch (err) {
+        say('메모 저장 실패: ' + err.message, true);
+      }
+      return;
+    }
+    if (!dueSchedule && !form.due.value) {
+      const quick = parseQuick(title);
+      if (quick.kind === 'event') {
+        try {
+          await addEvent({ title: quick.title, startAt: quick.startAt, endAt: quick.endAt, location: quick.location });
+          resetForm();
+          say('✓ 일정으로 넣었어요');
+          changed();
+        } catch (err) {
+          say('저장 실패: ' + err.message, true);
+        }
+        return;
+      }
     }
     // "저녁활동 1 수학 숙제", "화요일 10교시 영어"처럼 교시를 쓰면 그 시간에 하는 할 일로 저장합니다
     // "매주 화요일 점심 독서"처럼 '매주'를 쓰면 이번 쿼터 끝까지 매주 캘린더 일정으로 넣습니다
@@ -671,15 +723,14 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
           const { count, last } = await addRepeatEvents(repeat);
           message = `✓ 「${repeat.title}」 ${repeatLabel(repeat.weekdays)} 일정 ${count}개를 ${last.getMonth() + 1}/${last.getDate()}까지 넣었습니다`;
         }
-        form.title.value = '';
-        form.due.value = '';
-        dueSchedule = null;
-        syncDueButtons();
+        resetForm();
         dueHint.textContent = message;
+        say(message);
         changed();
       } catch (err) {
         dueHint.textContent = '저장 실패: ' + err.message;
         dueHint.className = 'due-hint error';
+        say('저장 실패: ' + err.message, true);
       }
       return;
     }
@@ -694,10 +745,7 @@ export function createTodoList(container, { onChange, showForm = true } = {}) {
       const parsed = parseTodoDate(title);
       await addTodo(parsed.title, form.due.value || (parsed.date ? toDateKey(parsed.date) : null));
     }
-    form.title.value = '';
-    form.due.value = '';
-    dueSchedule = null;
-    syncDueButtons();
+    resetForm();
     changed();
   });
 

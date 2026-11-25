@@ -266,3 +266,16 @@ button.icon:hover { color: var(--danger); }
 .toast button { padding: 0 4px; border: none; background: none; color: inherit; font-weight: 700; text-decoration: underline; }
 .toast button:hover { background: none; opacity: 0.85; }
 @media (prefers-reduced-motion: reduce) { .todos li.leaving { transition: none; } }
+
+/* 입력 칸 아래 미리보기 "→ 11/27(목) 2교시 · 일정" */
+.quick-preview { margin: 4px 2px 0; min-height: 18px; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.quick-preview.hint { color: var(--faint); }
+.quick-preview.todo { color: var(--text); }
+.quick-preview.event, .quick-preview.repeat { color: color-mix(in srgb, var(--primary) 70%, var(--text)); font-weight: 600; }
+.quick-preview.note { color: #8a6d00; font-weight: 600; }
+.quick-preview.saved { color: #0f7b6c; font-weight: 600; }
+.quick-preview.error { color: var(--danger); }
+@media (prefers-color-scheme: dark) {
+  .quick-preview.note { color: #f2d488; }
+  .quick-preview.saved { color: #4db6a4; }
+}

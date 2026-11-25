@@ -317,3 +317,14 @@ button.icon-btn:hover { background: var(--hover); color: var(--text); }
   .cal-controls > button, .snap-select { white-space: nowrap; }
   .snap-select span { display: none; }
 }
+
+/* 일정 창: 장소·알림 줄 */
+.event-dialog .extra-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+.event-dialog .field { display: grid; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.event-dialog .field input, .event-dialog .field select { font: inherit; font-size: 14px; color: var(--text); background: var(--bg);
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 8px; }
+/* 캘린더 칸에 보이는 장소 */
+.fc .ev .ev-place { font-size: 11px; font-weight: 400; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fc .fc-daygrid-event.ev .ev-place { display: none; }
+/* 시간표 등록 창: 색 자동으로 나누기 */
+.q-colors h3 .auto-colors { float: right; padding: 2px 10px; font-size: 12px; font-weight: 400; }
